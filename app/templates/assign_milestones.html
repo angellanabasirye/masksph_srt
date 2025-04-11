@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head><title>Assign Milestones</title></head>
+<body>
+  <h2>Assign Milestones to {{ student.full_name }}</h2>
+
+  <form method="POST">
+    {% for milestone in milestones %}
+      <label>
+        <input type="checkbox" name="milestones" value="{{ milestone.id }}"
+          {% if milestone.id in assigned_ids %}checked{% endif %}>
+        {{ milestone.name }}
+      </label><br>
+    {% endfor %}
+    <button type="submit">Assign</button>
+  </form>
+
+  <a href="{{ url_for('main.students') }}">← Back to Student List</a>
+</body>
+</html>

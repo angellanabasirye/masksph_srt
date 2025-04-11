@@ -1,0 +1,26 @@
+notepad .gitignore
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environment
+.venv/
+
+# Environment variables
+.env
+
+# VSCode settings
+.vscode/
+
+# Database or instance files
+instance/
+*.sqlite3
+*.db
+
+# Pytest
+.pytest_cache/
+
+# Migration cache
+migrations/__pycache__/

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Registered Students</title>
+    <!-- Bootstrap 5 CSS -->
+    <!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"> -->
+</head>
+<body>
+
+    <h2>All Registered Students</h2>      
+        <form method="get" action="">
+            <input type="text" name="search" placeholder="Search by name, student number, or reg number" value="{{ search }}">
+            <button type="submit">Search</button>
+
+            <select name="program">
+                <option value="">-- Filter by Program --</option>
+                {% for p in programs %}
+                  <option value="{{ p[0] }}" {% if selected_program == p[0] %}selected{% endif %}>{{ p[0] }}</option>
+                {% endfor %}
+              </select>
+            
+              <select name="supervisor">
+                <option value="">-- Filter by Supervisor --</option>
+                {% for s in supervisors %}
+                  <option value="{{ s.id }}" {% if selected_supervisor == s.id %}selected{% endif %}>{{ s.full_name }}</option>
+                {% endfor %}
+              </select>
+            
+              <button type="submit">Apply Filters</button>
+        </form>
+
+
+    <table border="1" cellpadding="5">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Full Name</th>
+                <th>Email</th>
+                <th>Program</th>
+                <th>Student Number</th>
+                <th>Registration Number</th>
+                <th>Supervisor</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+            <tr>
+                <td>{{ student.id }}</td>
+                <td>{{ student.full_name }}</td>
+                <td>{{ student.email }}</td>
+                <td>{{ student.program }}</td>
+                <td>{{ student.student_number }}</td>
+                <td>{{ student.registration_number }}</td>
+                <td>
+                    {% if student.supervisors %}
+                      {{ student.supervisors | map(attribute='full_name') | join(', ') }}
+                    {% else %}
+                      <a href="{{ url_for('main.assign_supervisors_page', student_id=student.id) }}">Assign</a>
+                    {% endif %}
+                  </td>
+                <td>
+                    <a href="{{ url_for('main.assign_milestones', student_id=student.id) }}">Assign Milestones</a> |
+                    <a href="{{ url_for('main.student_progress', student_id=student.id) }}">View Progress</a> |
+                    <a href="{{ url_for('main.edit_student', student_id=student.id) }}">Edit</a> |
+                    <a href="{{ url_for('main.delete_student', student_id=student.id) }}" onclick="return confirm('Are you sure?')">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <br>
+    <a href="{{ url_for('main.index') }}">← Back to Home</a>
+    <!-- Bootstrap 5 JS -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script> -->
+
+</body>
+</html>

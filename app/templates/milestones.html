@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head><title>Milestones</title></head>
+<body>
+  <h2>Add Milestone</h2>
+  <form method="POST">
+    <label>Name:</label><br>
+    <input type="text" name="name" required><br><br>
+
+    <label>Description:</label><br>
+    <textarea name="description"></textarea><br><br>
+
+    <button type="submit">Add Milestone</button>
+  </form>
+
+  <h3>All Milestones</h3>
+  <ul>
+    {% for milestone in milestones %}
+    <li><strong>{{ milestone.name }}</strong> — {{ milestone.description }}</li>
+    {% endfor %}
+  </ul>
+</body>
+
+<a href="{{ url_for('main.index') }}">← Back to Home</a>
+</html>

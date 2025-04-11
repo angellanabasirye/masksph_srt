@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Student Progress</title>
+</head>
+<body>
+  <h2>{{ student.full_name }}'s Research Progress</h2>
+
+  <!-- Progress Bar -->
+  <div style="background:#eee; width:300px; margin-bottom:10px;">
+    <div style="background:green; color:white; width:{{ percent }}%; padding:4px 0; text-align:center;">
+      {{ percent }}%
+    </div>
+  </div>
+
+  <!-- Completion Form -->
+  <form method="POST">
+    <ul>
+      {% for sm in student.student_milestones %}
+        <li>
+          <label>
+            <input type="checkbox" name="completed" value="{{ sm.milestone.id }}"
+                   {% if sm.completed %}checked{% endif %}>
+            {{ sm.milestone.name }} — {{ sm.milestone.description }}
+          </label>
+        </li>
+      {% else %}
+        <li>No milestones assigned yet.</li>
+      {% endfor %}
+    </ul>
+    <button type="submit">Update Progress</button>
+  </form>
+
+  <br>
+  <a href="{{ url_for('main.students') }}">← Back to Student List</a>
+</body>
+</html>

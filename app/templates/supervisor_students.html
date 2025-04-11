@@ -1,0 +1,10 @@
+<h2>Students Supervised by {{ supervisor.full_name }}</h2>
+
+<ul>
+  {% for student in students %}
+    <li>
+      {{ student.full_name }} —
+      <a href="{{ url_for('main.student_progress', student_id=student.id) }}">Progress</a>
+    </li>
+  {% endfor %}
+</ul>

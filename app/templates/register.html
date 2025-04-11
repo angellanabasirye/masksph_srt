@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Student Registration</h2>
+    <form method="POST">
+        <label>Full Name:</label><br>
+        <input type="text" name="full_name" required><br><br>
+
+        <label>Gender:</label><br>
+        <select name="gender" required>
+            <option value="">-- Select Program --</option>
+            <option value="MHI">Male</option>
+            <option value="MPH">Female</option>
+        </select><br><br>
+
+        <label>Email:</label><br>
+        <input type="email" name="email" required><br><br>
+
+        <label>Phone:</label><br>
+        <input type="text" name="phone"><br><br>
+
+        <label>Registration Number:</label><br>
+        <input type="text" name="registration_number" required><br><br>
+
+        <label>Student Number:</label><br>
+        <input type="text" name="student_number" required><br><br>
+
+        <label>Program:</label><br>
+        <select name="program" required>
+            <option value="">-- Select Program --</option>
+            <option value="MHI">MHI</option>
+            <option value="MPH">MPH</option>
+            <option value="MPVC">MPVC</option>
+        </select><br><br>
+
+        <label>year of intake:</label><br>
+        <input type="text" name="year_of_intake" required><br><br>
+
+        <label>research topic:</label><br>
+        <input type="text" name="research_topic" required><br><br>
+
+        <button type="submit">Register</button>
+    </form>
+</body>
+<a href="{{ url_for('main.students') }}">← Back to Student List</a>
+</html>

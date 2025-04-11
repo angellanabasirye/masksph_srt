@@ -1,0 +1,22 @@
+<h3>Assign Supervisors to {{ student.full_name }}</h3>
+
+<form method="POST">
+  {% if supervisors %}
+    {% for s in supervisors %}
+      <div>
+        <label>
+          <input type="checkbox" name="supervisors" value="{{ s.id }}"
+            {% if s in student.supervisors %}checked{% endif %}>
+          {{ s.full_name }} - {{ s.department }}
+        </label>
+      </div>
+    {% endfor %}
+    <button type="submit">Save Supervisors</button>
+  {% else %}
+    <p><strong>No supervisors found. Please register supervisors first.</strong></p>
+  {% endif %}
+</form>
+
+<p><a href="{{ url_for('main.register_supervisor') }}">➕ Register a Supervisor</a></p>
+
+<a href="{{ url_for('main.students') }}">← Back to Student List</a>
