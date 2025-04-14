@@ -1,0 +1,29 @@
+{% extends 'admin/base_admin.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Edit User</h2>
+
+  <form method="POST">
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" name="full_name" class="form-control" value="{{ edit_user.full_name }}" required>
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" name="email" class="form-control" value="{{ edit_user.email }}" required>
+    </div>
+    <div class="form-group">
+      <label>Role</label>
+      <select name="role" class="form-control">
+        <option value="admin" {% if edit_user.role == 'admin' %}selected{% endif %}>Admin</option>
+        <option value="coordinator" {% if edit_user.role == 'coordinator' %}selected{% endif %}>Coordinator</option>
+        <option value="supervisor" {% if edit_user.role == 'supervisor' %}selected{% endif %}>Supervisor</option>
+        <option value="student" {% if edit_user.role == 'student' %}selected{% endif %}>Student</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-success">Update</button>
+    <a href="{{ url_for('admin.manage_users') }}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

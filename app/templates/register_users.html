@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><title>Register</title></head>
+<body>
+  <h2>Register</h2>
+  <form method="POST">
+    Name: <input type="text" name="full_name" required><br>
+    Email: <input type="email" name="email" required><br>
+    Password: <input type="password" name="password" required><br>
+    Role:
+    <select name="role" required>
+      <option value="admin">Admin</option>
+      <option value="supervisor">Supervisor</option>
+      <option value="student">Student</option>
+      <option value="coordinator">Program Coordinator</option>
+    </select><br>
+    <button type="submit">Register</button>
+  </form>
+  <p>Already registered? <a href="{{ url_for('main.login') }}">Login</a>.</p>
+</body>
+</html>

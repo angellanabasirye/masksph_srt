@@ -1,8 +1,12 @@
-from .models import db, Student, Supervisor, StudentMilestone, Milestone
+from .models import db, Student, Supervisor, StudentMilestone, Milestone, User
 from sqlalchemy import func
 from app import db
 from flask import request
 from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask_login import login_user, logout_user, login_required, current_user
+from sqlalchemy import func
+from .admin import admin
+
 
 
 main = Blueprint('main', __name__)
@@ -10,22 +14,25 @@ main = Blueprint('main', __name__)
 # ----------------------------------
 # Home Page
 # ----------------------------------
+
 @main.route('/')
+@login_required
 def index():
+
+    # Calculate statistics first (common data)
     total_students = Student.query.count()
     total_supervisors = Supervisor.query.count()
     unassigned_students = Student.query.filter(~Student.supervisors.any()).count()
 
-    # Calculate completion rate
     completed_students = 0
     students = Student.query.all()
     for student in students:
         assigned = student.student_milestones
         if assigned and all(sm.completed for sm in assigned):
             completed_students += 1
+
     average_completion = round((completed_students / total_students) * 100, 2) if total_students > 0 else 0
 
-    # Intake year data
     try:
         year_data = (
             db.session.query(Student.year_of_intake, func.count())
@@ -35,11 +42,10 @@ def index():
         year_of_intakes = [item[0] for item in year_data]
         intake_counts = [item[1] for item in year_data]
     except AttributeError:
-        # fallback if year_of_intake is not yet defined
         year_of_intakes = []
         intake_counts = []
 
-    return render_template('index.html', stats={
+    stats = {
         'total_students': total_students,
         'total_supervisors': total_supervisors,
         'unassigned_students': unassigned_students,
@@ -47,8 +53,20 @@ def index():
         'average_completion': average_completion,
         'year_of_intakes': year_of_intakes,
         'intake_counts': intake_counts,
-    })
+    }
 
+    # Role-based dashboard routing
+    if current_user.role == 'student':
+        return render_template('dashboards/student.html', user=current_user, stats=stats)
+    elif current_user.role == 'supervisor':
+        return render_template('dashboards/supervisor.html', user=current_user, stats=stats)
+    elif current_user.role == 'coordinator':
+        return render_template('dashboards/coordinator.html', user=current_user, stats=stats)
+    elif current_user.role == 'admin':
+        return render_template('dashboards/admin.html', user=current_user, stats=stats)
+
+    # Default fallback (optional)
+    return render_template('index.html', stats=stats, user=current_user)
 
 # ----------------------------------
 # Register Student
@@ -276,5 +294,68 @@ def assign_supervisors_page(student_id):
 
     return render_template('assign_supervisors.html', student=student, supervisors=all_supervisors)
 
+@main.route('/create-admin')
+def create_admin():
+    from app import db
+    admin = User(full_name="System Admin", email="admin@example.com", role="admin")
+    admin.set_password("adminpass")
+    db.session.add(admin)
+    db.session.commit()
+    return "Admin created!"
 
+@main.route('/register_users', methods=['GET', 'POST'])
+def register_users():
+    if request.method == 'POST':
+        full_name = request.form['full_name']
+        email = request.form['email']
+        password = request.form['password']
+        role = request.form['role']
 
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            flash('Email already registered.', 'danger')
+            return redirect(url_for('main.register_users.html'))
+
+        user = User(full_name=full_name, email=email, role=role)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        flash('Registration successful. Please log in.', 'success')
+        return redirect(url_for('main.login'))
+
+    return render_template('register_users.html')
+
+@main.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        user = User.query.filter_by(email=email).first()
+
+        if user and user.check_password(password):
+            login_user(user)
+            flash('Login successful.', 'success')
+            return redirect(url_for('main.index'))
+        flash('Invalid credentials.', 'danger')
+    return render_template('login.html')
+
+@main.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Logged out.', 'info')
+    return redirect(url_for('main.login'))
+
+@main.route('/dashboard')
+@login_required
+def dashboard():
+    return render_template('dashboard.html', user=current_user)
+
+# @admin.route('/manage-users')
+# @login_required
+# def manage_users():
+#     if current_user.role != 'admin':
+#         return "Unauthorized", 403
+
+#     users = User.query.all()
+#     return render_template('admin/manage_users.html', user=current_user, users=users)

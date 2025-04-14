@@ -1,0 +1,7 @@
+<h2>Welcome, {{ user.full_name }} (Program Coordinator)</h2>
+<p>Students Overview:</p>
+<ul>
+  {% for student in students %}
+    <li>{{ student.full_name }} – {{ student.supervisor.full_name if student.supervisor else 'No Supervisor' }}</li>
+  {% endfor %}
+</ul>

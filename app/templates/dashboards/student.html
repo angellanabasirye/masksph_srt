@@ -1,0 +1,10 @@
+<h2>Welcome, {{ user.full_name }} (Student)</h2>
+<ul>
+  <li>Supervisor: {{ user.supervisor.full_name if user.supervisor else 'Not Assigned' }}</li>
+  <li>Milestones:</li>
+  <ul>
+    {% for milestone in user.student_milestones %}
+      <li>{{ milestone.name }} - {{ 'Completed' if milestone.completed else 'Pending' }}</li>
+    {% endfor %}
+  </ul>
+</ul>

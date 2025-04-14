@@ -1,0 +1,7 @@
+<h2>Welcome, {{ user.full_name }} (Supervisor)</h2>
+<p>Assigned Students:</p>
+<ul>
+  {% for student in user.students %}
+    <li>{{ student.full_name }} - {{ student.research_topic }}</li>
+  {% endfor %}
+</ul>

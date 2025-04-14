@@ -1,0 +1,26 @@
+<h2>Welcome, {{ user.full_name }} (Admin)</h2>
+<ul>
+  <li>Total Users: {{ stats.total_users }}</li>
+  <li>Manage Roles & Permissions</li>
+</ul>
+<a href="{{ url_for('admin.manage_users') }}">Manage Users</a>
+
+<!-- templates/dashboards/admin.html -->
+{% extends 'index.html' %}
+
+{% block content %}
+  <div class="container mt-4">
+    <h2>Welcome, {{ user.username }} (Admin)</h2>
+    <p>This is your admin dashboard.</p>
+
+    <div>
+      <h4>Quick Stats</h4>
+      <ul>
+        <li>Total Students: {{ stats.total_students }}</li>
+        <li>Total Supervisors: {{ stats.total_supervisors }}</li>
+        <li>Unassigned Students: {{ stats.unassigned_students }}</li>
+        <li>Average Completion: {{ stats.average_completion }}%</li>
+      </ul>
+    </div>
+  </div>
+{% endblock %}
