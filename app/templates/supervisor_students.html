@@ -1,10 +1,32 @@
-<h2>Students Supervised by {{ supervisor.full_name }}</h2>
+{% extends 'layouts/form_layout.html' %}
 
-<ul>
-  {% for student in students %}
-    <li>
-      {{ student.full_name }} —
-      <a href="{{ url_for('main.student_progress', student_id=student.id) }}">Progress</a>
-    </li>
-  {% endfor %}
-</ul>
+{% block content %}
+<div class="container mt-5">
+  <h2 class="mb-4">Assign Supervisors to {{ student.full_name }}</h2>
+
+  <form method="POST">
+    {{ form.hidden_tag() }}
+
+    <div class="mb-3">
+      {% for subfield in form.supervisors %}
+        <div class="form-check">
+          {{ subfield(class="form-check-input", onchange="limitSelection(this)") }}
+          {{ subfield.label(class="form-check-label") }}
+        </div>
+      {% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn-primary">{{ form.submit.label }}</button>
+  </form>
+</div>
+
+<script>
+  function limitSelection(checkbox) {
+    const checkedBoxes = document.querySelectorAll('input[type="checkbox"]:checked');
+    if (checkedBoxes.length > 3) {
+      checkbox.checked = false;
+      alert("You can select up to 3 supervisors only.");
+    }
+  }
+</script>
+{% endblock %}

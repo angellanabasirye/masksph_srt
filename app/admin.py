@@ -1,32 +1,46 @@
 # app/admin.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash, make_response
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
-from . import db
-from .models import User, ActivityLog
+from app.models import User, Log, ActivityLog
+from app.extensions import db
 import csv
 import io
-from flask import make_response
 
-admin = Blueprint('admin', __name__, template_folder='templates')
+# Renamed to match what __init__.py expects
+admin_bp = Blueprint('admin', __name__, template_folder='templates')
 
-from .models import User, db
 
-@admin.route('/manage-users')
+@admin_bp.route('/manage-users', methods=['GET'])
 @login_required
 def manage_users():
-    users = User.query.all()
-    user_filter = request.args.get('user_filter')
+    search = request.args.get('search', '')
+    role = request.args.get('role', '')
+    page = request.args.get('page', 1, type=int)
 
-    if user_filter:
-        logs = ActivityLog.query.filter_by(user_id=user_filter).order_by(ActivityLog.timestamp.desc()).all()
-    else:
-        logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(50).all()
+    query = User.query
 
-    return render_template('admin/manage_users.html', user=current_user, users=users, logs=logs)
+    if search:
+        query = query.filter(
+            (User.full_name.ilike(f'%{search}%')) |
+            (User.email.ilike(f'%{search}%'))
+        )
+
+    if role:
+        query = query.filter_by(role=role)
+
+    users = query.order_by(User.full_name).paginate(page=page, per_page=10)
+
+    try:
+        logs = Log.query.order_by(Log.timestamp.desc()).limit(10).all()
+    except Exception:
+        logs = []
+
+    return render_template('admin/manage_users.html', users=users, logs=logs)
 
 
-@admin.route('/edit-user/<int:user_id>', methods=['GET', 'POST'])
+@admin_bp.route('/edit-user/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def edit_user(user_id):
     user = User.query.get_or_404(user_id)
@@ -48,7 +62,8 @@ def edit_user(user_id):
 
     return render_template('admin/edit_user.html', user=current_user, user_to_edit=user)
 
-@admin.route('/delete-user/<int:user_id>', methods=['POST'])
+
+@admin_bp.route('/delete-user/<int:user_id>', methods=['POST'])
 @login_required
 def delete_user(user_id):
     user = User.query.get_or_404(user_id)
@@ -62,8 +77,7 @@ def delete_user(user_id):
     return redirect(url_for('admin.manage_users'))
 
 
-
-@admin.route('/add-user', methods=['GET', 'POST'])
+@admin_bp.route('/add-user', methods=['GET', 'POST'])
 @login_required
 def add_user():
     if current_user.role != 'admin':
@@ -84,19 +98,18 @@ def add_user():
         user = User(full_name=full_name, email=email, role=role)
         user.set_password(password)
 
-        new_user = User(...)  
-        log = ActivityLog(user_id=current_user.id, action=f"Added user: {new_user.email}")
+        log = ActivityLog(user_id=current_user.id, action=f"Added user: {user.email}")
         db.session.add(log)
-
         db.session.add(user)
         db.session.commit()
+
         flash('New user added successfully!', 'success')
         return redirect(url_for('admin.manage_users'))
 
     return render_template('admin/add_user.html', user=current_user)
 
 
-@admin.route('/download-logs')
+@admin_bp.route('/download-logs')
 @login_required
 def download_logs():
     logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).all()

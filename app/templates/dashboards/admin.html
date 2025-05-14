@@ -1,11 +1,3 @@
-<h2>Welcome, {{ user.full_name }} (Admin)</h2>
-<ul>
-  <li>Total Users: {{ stats.total_users }}</li>
-  <li>Manage Roles & Permissions</li>
-</ul>
-<a href="{{ url_for('admin.manage_users') }}">Manage Users</a>
-
-<!-- templates/dashboards/admin.html -->
 {% extends 'index.html' %}
 
 {% block content %}

@@ -1,12 +1,15 @@
-from .models import db, Student, Supervisor, StudentMilestone, Milestone, User
 from sqlalchemy import func
-from app import db
+# from app import db
 from flask import request
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, get_flashed_messages
 from flask_login import login_user, logout_user, login_required, current_user
-from sqlalchemy import func
-from .admin import admin
-
+from flask import render_template, request
+from flask_login import login_user, logout_user, login_required, current_user
+from app.forms import RegisterUserForm, RegisterStudentForm
+from werkzeug.security import generate_password_hash
+from app.forms import RegisterUserForm, RegisterStudentForm, RegisterSupervisorForm, AssignSupervisorsForm
+from app.models import db, Student, Supervisor, StudentMilestone, Milestone, User
+# from app.auth_utils import role_required
 
 
 main = Blueprint('main', __name__)
@@ -72,74 +75,88 @@ def index():
 # Register Student
 # ----------------------------------
 @main.route('/register', methods=['GET', 'POST'])
+@login_required
 def register():
-    error = None
-    if request.method == 'POST':
-        full_name = request.form['full_name']
-        gender = request.form['gender']
-        email = request.form['email']
-        phone = request.form.get('phone')
-        reg_number = request.form['registration_number']
-        student_number = request.form['student_number']
-        program = request.form['program']
-        year_of_intake = request.form['year_of_intake']
-        research_topic = request.form['research_topic']
+    form = RegisterStudentForm()
+    if form.validate_on_submit():
+        reg_number = form.registration_number.data
+        student_number = form.student_number.data
 
-        # Check uniqueness
         existing = Student.query.filter(
             (Student.registration_number == reg_number) |
             (Student.student_number == student_number)
         ).first()
 
         if existing:
-            error = 'A student with this registration or student number already exists.'
+            flash('A student with this registration or student number already exists.', 'danger')
         else:
             new_student = Student(
-                full_name=full_name,
-                gender=gender,
-                email=email,
-                phone=phone,
+                full_name=form.full_name.data,
+                gender=form.gender.data,
+                email=form.email.data,
+                phone=form.phone.data,
                 registration_number=reg_number,
                 student_number=student_number,
-                program=program,
-                year_of_intake=year_of_intake,
-                research_topic=research_topic
+                program=form.program.data,
+                year_of_intake=form.year_of_intake.data,
+                research_topic=form.research_topic.data
             )
-
             db.session.add(new_student)
             db.session.commit()
-
-            flash('Student registered successfully.')
+            flash('Student registered successfully.', 'success')
             return redirect(url_for('main.students'))
 
-    return render_template('register.html', error=error)
+    return render_template('register.html', form=form)
 
 # ----------------------------------
 # Register Supervisor
 # ----------------------------------
-@main.route('/register-supervisor', methods=['GET', 'POST'])
+@main.route('/register_supervisor', methods=['GET', 'POST'])
+@login_required
 def register_supervisor():
-    if request.method == 'POST':
-        name = request.form['full_name']
-        email = request.form['email']
-        department = request.form['department']
+    form = RegisterSupervisorForm()
 
-        supervisor = Supervisor(full_name=name, email=email, department=department)
-        db.session.add(supervisor)
+    if form.validate_on_submit():
+        if Supervisor.query.filter_by(email=form.email.data).first():
+            flash('Email already exists.', 'danger')
+        else:
+            new_supervisor = Supervisor(
+                full_name=form.full_name.data,
+                email=form.email.data,
+                phone=form.phone.data,
+                gender=form.gender.data,
+                department=form.department.data,
+                professional_field=form.professional_field.data
+            )
+            db.session.add(new_supervisor)
+            db.session.commit()
+            flash('Supervisor registered successfully.', 'success')
+            return redirect(url_for('main.supervisors'))
+
+    return render_template('register_supervisor.html', form=form)
+
+
+# ----------------------------------
+# View assign supervisor
+# ----------------------------------
+@main.route('/assign-supervisors/<int:student_id>', methods=['GET', 'POST'])
+def assign_supervisors_form(student_id):
+    student = Student.query.get_or_404(student_id)
+    form = AssignSupervisorsForm()
+
+    # Set the choices dynamically
+    form.supervisors.choices = [(s.id, s.full_name) for s in Supervisor.query.all()]
+
+    if form.validate_on_submit():
+        selected_ids = form.supervisors.data
+        selected_supervisors = Supervisor.query.filter(Supervisor.id.in_(selected_ids)).all()
+        student.supervisors = selected_supervisors
         db.session.commit()
+        flash('Supervisors assigned successfully.', 'success')
+        return redirect(url_for('main.students'))
 
-        flash('Supervisor registered successfully!')
-        return redirect(url_for('main.index'))
+    return render_template('assign_supervisors.html', student=student, form=form)
 
-    return render_template('register_supervisor.html')
-
-# ----------------------------------
-# View student-supervisor
-# ----------------------------------
-@main.route('/supervisor/<int:supervisor_id>/students')
-def supervisor_students(supervisor_id):
-    supervisor = Supervisor.query.get_or_404(supervisor_id)
-    return render_template('supervisor_students.html', supervisor=supervisor, students=supervisor.students)
 
 # ----------------------------------
 # View Students (with search + pagination)
@@ -279,64 +296,53 @@ def student_progress(student_id):
 
     return render_template('student_progress.html', student=student, percent=percent)
 
-@main.route('/assign-supervisors/<int:student_id>', methods=['GET', 'POST'])
-def assign_supervisors_page(student_id):
-    student = Student.query.get_or_404(student_id)
-    all_supervisors = Supervisor.query.all()
-
-    if request.method == 'POST':
-        selected_ids = request.form.getlist('supervisors')
-        selected_supervisors = Supervisor.query.filter(Supervisor.id.in_(selected_ids)).all()
-        student.supervisors = selected_supervisors
-        db.session.commit()
-        flash('Supervisors assigned successfully.')
-        return redirect(url_for('main.students'))
-
-    return render_template('assign_supervisors.html', student=student, supervisors=all_supervisors)
 
 @main.route('/create-admin')
 def create_admin():
-    from app import db
+    from app.extensions import db
     admin = User(full_name="System Admin", email="admin@example.com", role="admin")
     admin.set_password("adminpass")
     db.session.add(admin)
     db.session.commit()
     return "Admin created!"
 
-@main.route('/register_users', methods=['GET', 'POST'])
-def register_users():
-    if request.method == 'POST':
-        full_name = request.form['full_name']
-        email = request.form['email']
-        password = request.form['password']
-        role = request.form['role']
-
-        existing_user = User.query.filter_by(email=email).first()
-        if existing_user:
-            flash('Email already registered.', 'danger')
-            return redirect(url_for('main.register_users.html'))
-
-        user = User(full_name=full_name, email=email, role=role)
-        user.set_password(password)
-        db.session.add(user)
+@main.route('/register_user', methods=['GET', 'POST'])
+def register_user():
+    form = RegisterUserForm()
+    if form.validate_on_submit():
+        hashed_password = generate_password_hash(form.password.data)
+        new_user = User(
+            full_name=form.full_name.data,
+            email=form.email.data,
+            password=hashed_password,
+            role=form.role.data
+        )
+        db.session.add(new_user)
         db.session.commit()
-        flash('Registration successful. Please log in.', 'success')
+        flash('User registered successfully. Please log in.', 'success')
         return redirect(url_for('main.login'))
-
-    return render_template('register_users.html')
+    return render_template('register_user.html', form=form)
 
 @main.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        user = User.query.filter_by(email=email).first()
+        email = request.form.get('email')
+        password = request.form.get('password')
 
+        if not email or not password:
+            flash("Email and password are required.", "danger")
+            return redirect(url_for('main.login'))
+
+        user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             login_user(user)
-            flash('Login successful.', 'success')
-            return redirect(url_for('main.index'))
-        flash('Invalid credentials.', 'danger')
+            flash('Logged in successfully.', 'success')
+            return redirect(url_for('main.dashboard'))  # Adjust route as needed
+        else:
+            flash('Invalid credentials.', 'danger')
+            return redirect(url_for('main.login'))
+        
+    get_flashed_messages()
     return render_template('login.html')
 
 @main.route('/logout')
@@ -346,16 +352,125 @@ def logout():
     flash('Logged out.', 'info')
     return redirect(url_for('main.login'))
 
+
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    return render_template('dashboard.html', user=current_user)
+    # Calculate statistics (shared across dashboards)
+    total_students = Student.query.count()
+    total_supervisors = Supervisor.query.count()
+    unassigned_students = Student.query.filter(~Student.supervisors.any()).count()
 
-# @admin.route('/manage-users')
-# @login_required
-# def manage_users():
-#     if current_user.role != 'admin':
-#         return "Unauthorized", 403
+    completed_students = 0
+    students = Student.query.all()
+    for student in students:
+        assigned = student.student_milestones
+        if assigned and all(sm.completed for sm in assigned):
+            completed_students += 1
 
-#     users = User.query.all()
-#     return render_template('admin/manage_users.html', user=current_user, users=users)
+    average_completion = round((completed_students / total_students) * 100, 2) if total_students > 0 else 0
+
+    try:
+        year_data = (
+            db.session.query(Student.year_of_intake, func.count())
+            .group_by(Student.year_of_intake)
+            .all()
+        )
+        year_of_intakes = [item[0] for item in year_data]
+        intake_counts = [item[1] for item in year_data]
+    except AttributeError:
+        year_of_intakes = []
+        intake_counts = []
+
+    stats = {
+        'total_students': total_students,
+        'total_supervisors': total_supervisors,
+        'unassigned_students': unassigned_students,
+        'completed_students': completed_students,
+        'average_completion': average_completion,
+        'year_of_intakes': year_of_intakes,
+        'intake_counts': intake_counts,
+    }
+
+    role = current_user.role
+    if role == 'admin':
+        return render_template('dashboards/admin.html', user=current_user, stats=stats)
+    elif role == 'coordinator':
+        return render_template('dashboards/coordinator.html', user=current_user, stats=stats)
+    elif role == 'supervisor':
+        return render_template('dashboards/supervisor.html', user=current_user, stats=stats)
+    elif role == 'student':
+        return render_template('dashboards/student.html', user=current_user, stats=stats)
+    else:
+        flash('Unknown role. Contact administrator.', 'danger')
+        return redirect(url_for('main.logout'))
+
+
+from app.auth_utils import admin_required
+
+@main.route('/register_coordinator', methods=['GET', 'POST'])
+def register_coordinator():
+    if request.method == 'POST':
+        full_name = request.form['full_name']
+        email = request.form['email']
+        phone = request.form['phone']
+        program = request.form['program']
+
+        # Save coordinator logic goes here
+        new_user = User(
+            full_name=full_name,
+            email=email,
+            phone=phone,
+            program=program,
+            role='coordinator'
+        )
+        db.session.add(new_user)
+        db.session.commit()
+
+        flash('Coordinator registered successfully.', 'success')
+        return redirect(url_for('main.students'))  # Adjust as needed
+
+    return render_template('register_cordinator.html')
+
+@main.route('/supervisors')
+@login_required
+def supervisors():
+    search_query = request.args.get('search', '', type=str)
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+
+    query = Supervisor.query
+    if search_query:
+        search = f"%{search_query}%"
+        query = query.filter((Supervisor.full_name.ilike(search)) | (Supervisor.email.ilike(search)))
+
+    paginated_supervisors = query.order_by(Supervisor.full_name).paginate(page=page, per_page=per_page)
+    return render_template('supervisors.html', supervisors=paginated_supervisors)
+
+@main.route('/supervisors/edit/<int:supervisor_id>', methods=['GET', 'POST'])
+@login_required
+def edit_supervisor(supervisor_id):
+    supervisor = Supervisor.query.get_or_404(supervisor_id)
+    form = RegisterSupervisorForm(obj=supervisor)
+
+    if form.validate_on_submit():
+        supervisor.full_name = form.full_name.data
+        supervisor.email = form.email.data
+        supervisor.phone = form.phone.data
+        supervisor.gender = form.gender.data
+        supervisor.department = form.department.data
+        db.session.commit()
+        flash('Supervisor updated successfully.', 'success')
+        return redirect(url_for('main.supervisors'))
+
+    return render_template('register_supervisor.html', form=form, editing=True)
+
+
+@main.route('/supervisors/delete/<int:supervisor_id>')
+@login_required
+def delete_supervisor(supervisor_id):
+    supervisor = Supervisor.query.get_or_404(supervisor_id)
+    db.session.delete(supervisor)
+    db.session.commit()
+    flash('Supervisor deleted.', 'success')
+    return redirect(url_for('main.supervisors'))

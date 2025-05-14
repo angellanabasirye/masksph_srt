@@ -1,6 +1,15 @@
-# app/admin/__init__.py
-from flask import Blueprint
+from flask import Flask
+from .models import db  # Import db here
 
-admin = Blueprint('admin', __name__, template_folder='../templates/admin')
+def create_app():
+    app = Flask(__name__)
+    
+    # Initialize the app with the db
+    app.config.from_object('config.Config')
+    db.init_app(app)
 
-from . import routes  
+    # Register blueprints
+    from app.admin import admin_bp
+    app.register_blueprint(admin_bp)
+
+    return app

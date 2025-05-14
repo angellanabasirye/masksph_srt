@@ -1,11 +1,11 @@
 # app/__init__.py
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
+from app.extensions import db  
+from app.admin import admin_bp 
 
-db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
 
@@ -29,7 +29,6 @@ def create_app():
     from .routes import main
     app.register_blueprint(main)
 
-    from .admin import admin  # 👈 Import AFTER app is created
-    app.register_blueprint(admin, url_prefix='/admin')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
 
     return app

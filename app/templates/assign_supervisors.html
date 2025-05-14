@@ -1,22 +1,49 @@
-<h3>Assign Supervisors to {{ student.full_name }}</h3>
+{% extends 'layouts/form_layout.html' %}
 
-<form method="POST">
-  {% if supervisors %}
-    {% for s in supervisors %}
-      <div>
-        <label>
-          <input type="checkbox" name="supervisors" value="{{ s.id }}"
-            {% if s in student.supervisors %}checked{% endif %}>
-          {{ s.full_name }} - {{ s.department }}
-        </label>
-      </div>
-    {% endfor %}
-    <button type="submit">Save Supervisors</button>
-  {% else %}
-    <p><strong>No supervisors found. Please register supervisors first.</strong></p>
-  {% endif %}
-</form>
+{% block title %}Assign Supervisors{% endblock %}
 
-<p><a href="{{ url_for('main.register_supervisor') }}">➕ Register a Supervisor</a></p>
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">Assign Supervisors to Student</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {{ form.hidden_tag() }}
 
-<a href="{{ url_for('main.students') }}">← Back to Student List</a>
+                <div class="mb-3">
+                  <label class="form-label">Assigning to:</label>
+                  <input type="text" class="form-control" value="{{ student.full_name }}" disabled>
+                </div>
+
+                <div class="mb-3">
+                    {{ form.supervisors.label(class="form-label") }}
+                    <select name="supervisors" id="supervisors" class="form-select" multiple required>
+                        {% for supervisor in form.supervisors.choices %}
+                            <option value="{{ supervisor[0] }}">
+                                {{ supervisor[1] }} (Assigned: {{ supervisor[2] }} students, Dept: {{ supervisor[3] }}, Field: {{ supervisor[4] }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <small class="form-text text-muted">Hold Ctrl (Cmd on Mac) to select multiple. Max: 3 supervisors.</small>
+                </div>
+
+                <button type="submit" class="btn btn-dark">Assign Supervisors</button>
+            </form>
+            <hr>
+            <a href="{{ url_for('main.supervisors') }}">← View All Supervisors</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    const supervisorsSelect = document.getElementById("supervisors");
+    supervisorsSelect.addEventListener("change", function () {
+        if (this.selectedOptions.length > 3) {
+            alert("You can only assign a maximum of 3 supervisors.");
+            this.options[this.selectedIndex].selected = false;
+        }
+    });
+</script>
+{% endblock %}

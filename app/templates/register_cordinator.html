@@ -1,0 +1,21 @@
+{% extends 'layouts/form_layout.html' %}
+
+{% block title %}Register Coordinator{% endblock %}
+{% block form_title %}🧑‍💼 Program Coordinator Registration{% endblock %}
+
+{% block form_body %}
+<form method="POST">
+  <div class="mb-3"><label class="form-label">Full Name</label><input type="text" class="form-control" name="full_name" required></div>
+  <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" name="email" required></div>
+  <div class="mb-3"><label class="form-label">Phone</label><input type="text" class="form-control" name="phone"></div>
+  <div class="mb-3"><label class="form-label">Program</label>
+    <select class="form-select" name="program" required>
+      <option value="">-- Select Program --</option>
+      <option value="MHI">MHI</option>
+      <option value="MPH">MPH</option>
+      <option value="MPVC">MPVC</option>
+    </select>
+  </div>
+  <div class="d-grid"><button type="submit" class="btn btn-primary">Register Coordinator</button></div>
+</form>
+{% endblock %}

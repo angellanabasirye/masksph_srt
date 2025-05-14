@@ -1,10 +1,13 @@
-from . import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
+from app.extensions import db
 
-student_supervisors = db.Table('student_supervisors',
-    db.Column('student_id', db.Integer, db.ForeignKey('student.id')),
-    db.Column('supervisor_id', db.Integer, db.ForeignKey('supervisor.id'))
+
+student_supervisors = db.Table(
+    'student_supervisors',
+    db.Column('student_id', db.Integer, db.ForeignKey('student.id'), primary_key=True),
+    db.Column('supervisor_id', db.Integer, db.ForeignKey('supervisor.id'), primary_key=True)
 )
 
 class StudentMilestone(db.Model):
@@ -32,17 +35,27 @@ class Student(db.Model):
     
     student_milestones = db.relationship('StudentMilestone', back_populates='student')
     supervisor_id = db.Column(db.Integer, db.ForeignKey('supervisor.id'))
-    supervisors = db.relationship('Supervisor', secondary=student_supervisors, back_populates='students')
-
+    supervisors = db.relationship(
+        'Supervisor',
+        secondary=student_supervisors,
+        back_populates='students'
+    )
 
 class Supervisor(db.Model):
     __tablename__ = 'supervisor'
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), unique=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    phone = db.Column(db.String(20))
+    gender = db.Column(db.String(10))
     department = db.Column(db.String(100))
+    professional_field = db.Column(db.String(100))
 
-    students = db.relationship('Student', secondary=student_supervisors, back_populates='supervisors')
+    students = db.relationship(
+        'Student',
+        secondary=student_supervisors,
+        back_populates='supervisors'
+    )
 
 class Milestone(db.Model):
     __tablename__ = 'milestone'
@@ -82,3 +95,8 @@ class ActivityLog(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref=db.backref('activity_logs', lazy=True))
+
+class Log(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    message = db.Column(db.String(255))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)

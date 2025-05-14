@@ -56,7 +56,7 @@
                     {% if student.supervisors %}
                       {{ student.supervisors | map(attribute='full_name') | join(', ') }}
                     {% else %}
-                      <a href="{{ url_for('main.assign_supervisors_page', student_id=student.id) }}">Assign</a>
+                      <a href="{{ url_for('main.assign_supervisors_form', student_id=student.id) }}">Assign</a>
                     {% endif %}
                   </td>
                 <td>
