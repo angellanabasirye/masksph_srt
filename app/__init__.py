@@ -5,6 +5,9 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from app.extensions import db  
 from app.admin import admin_bp 
+import os
+basedir = os.path.abspath(os.path.dirname(__file__))
+
 
 migrate = Migrate()
 login_manager = LoginManager()
@@ -31,4 +34,8 @@ def create_app():
 
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
+    app.config['UPLOAD_FOLDER'] = os.path.join(basedir, 'uploads')  
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
     return app
+

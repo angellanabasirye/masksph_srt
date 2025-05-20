@@ -3,14 +3,17 @@ from sqlalchemy import func
 from flask import request
 from flask import Blueprint, render_template, request, redirect, url_for, flash, get_flashed_messages
 from flask_login import login_user, logout_user, login_required, current_user
-from flask import render_template, request
-from flask_login import login_user, logout_user, login_required, current_user
 from app.forms import RegisterUserForm, RegisterStudentForm
 from werkzeug.security import generate_password_hash
 from app.forms import RegisterUserForm, RegisterStudentForm, RegisterSupervisorForm, AssignSupervisorsForm
 from app.models import db, Student, Supervisor, StudentMilestone, Milestone, User
-# from app.auth_utils import role_required
+import os
+from werkzeug.utils import secure_filename
+from app.data_utils import allowed_file, process_student_excel
+from flask import Blueprint, render_template, send_from_directory, current_app
 
+
+# from app.auth_utils import role_required
 
 main = Blueprint('main', __name__)
 
@@ -74,6 +77,40 @@ def index():
 # ----------------------------------
 # Register Student
 # ----------------------------------
+# @main.route('/register', methods=['GET', 'POST'])
+# @login_required
+# def register():
+#     form = RegisterStudentForm()
+#     if form.validate_on_submit():
+#         reg_number = form.registration_number.data
+#         student_number = form.student_number.data
+
+#         existing = Student.query.filter(
+#             (Student.registration_number == reg_number) |
+#             (Student.student_number == student_number)
+#         ).first()
+
+#         if existing:
+#             flash('A student with this registration or student number already exists.', 'danger')
+#         else:
+#             new_student = Student(
+#                 full_name=form.full_name.data,
+#                 gender=form.gender.data,
+#                 email=form.email.data,
+#                 phone=form.phone.data,
+#                 registration_number=reg_number,
+#                 student_number=student_number,
+#                 program=form.program.data,
+#                 year_of_intake=form.year_of_intake.data,
+#                 research_topic=form.research_topic.data
+#             )
+#             db.session.add(new_student)
+#             db.session.commit()
+#             flash('Student registered successfully.', 'success')
+#             return redirect(url_for('main.students'))
+
+#     return render_template('register.html', form=form)
+
 @main.route('/register', methods=['GET', 'POST'])
 @login_required
 def register():
@@ -106,7 +143,8 @@ def register():
             flash('Student registered successfully.', 'success')
             return redirect(url_for('main.students'))
 
-    return render_template('register.html', form=form)
+    return render_template('register.html', form=form, edit_mode=False)
+
 
 # ----------------------------------
 # Register Supervisor
@@ -204,24 +242,44 @@ def students():
 # ----------------------------------
 # Edit Student
 # ----------------------------------
+# @main.route('/edit-student/<int:student_id>', methods=['GET', 'POST'])
+# def edit_student(student_id):
+#     student = Student.query.get_or_404(student_id)
+#     supervisors = Supervisor.query.order_by(Supervisor.full_name).all()
+
+#     if request.method == 'POST':
+#         student.full_name = request.form['full_name']
+#         student.email = request.form['email']
+#         student.program = request.form['program']
+#         student.phone = request.form.get('phone')
+#         student.reg_number = request.form['registration_number']
+#         student.student_number = request.form['student_number']
+#         student.supervisor_id = request.form.get('supervisor_id') or None
+#         db.session.commit()
+#         flash('Student updated successfully.')
+#         return redirect(url_for('main.students'))
+
+#     return render_template('edit_student.html', student=student, supervisors=supervisors)
+
 @main.route('/edit-student/<int:student_id>', methods=['GET', 'POST'])
+@login_required
 def edit_student(student_id):
     student = Student.query.get_or_404(student_id)
-    supervisors = Supervisor.query.order_by(Supervisor.full_name).all()
+    form = RegisterStudentForm(obj=student)
 
-    if request.method == 'POST':
-        student.full_name = request.form['full_name']
-        student.email = request.form['email']
-        student.program = request.form['program']
-        student.phone = request.form.get('phone')
-        student.reg_number = request.form['registration_number']
-        student.student_number = request.form['student_number']
-        student.supervisor_id = request.form.get('supervisor_id') or None
-        db.session.commit()
-        flash('Student updated successfully.')
-        return redirect(url_for('main.students'))
+    if request.method == 'POST' and form.validate_on_submit():
+        form.populate_obj(student)
+        try:
+            db.session.commit()
+            flash('Student updated successfully.', 'success')
+            return redirect(url_for('main.students'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error saving student: {str(e)}", 'danger')
 
-    return render_template('edit_student.html', student=student, supervisors=supervisors)
+    return render_template('register.html', form=form, edit_mode=True, student=student)
+
+    
 
 # ----------------------------------
 # Delete Student
@@ -474,3 +532,39 @@ def delete_supervisor(supervisor_id):
     db.session.commit()
     flash('Supervisor deleted.', 'success')
     return redirect(url_for('main.supervisors'))
+
+
+from flask import send_from_directory, current_app
+
+@main.route('/download-template')
+def download_excel_template():  
+    return send_from_directory(
+        directory=current_app.static_folder,
+        path='student_bulk_template_with_instructions.xlsx',
+        as_attachment=True
+    )
+
+@main.route('/upload-bulk-students', methods=['POST'])
+def upload_bulk_students():
+    file = request.files.get('bulk_file')
+    
+    if file and allowed_file(file.filename):
+        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
+        file.save(filepath)
+
+        result = process_student_excel(filepath)
+        
+        # Display feedback
+        if result['success']:
+            flash(f"{result['success']} students registered successfully.", "success")
+        if result['failed']:
+            for error in result['errors']:
+                flash(error, "danger")
+    else:
+        flash("Invalid file. Only .xlsx or .csv formats are allowed.", "danger")
+
+    return redirect(url_for('main.register'))
+
+@main.route('/debug-static')
+def debug_static():
+    return f"Static folder path: {current_app.static_folder}"

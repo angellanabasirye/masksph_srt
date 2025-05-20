@@ -1,8 +1,50 @@
 {% extends 'layouts/form_layout.html' %}
 
 {% block content %}
+
+{% if form.errors %}
+<div class="alert alert-danger">
+  <strong>Form validation failed:</strong>
+  <ul>
+    {% for field, errors in form.errors.items() %}
+      {% for error in errors %}
+        <li><strong>{{ field }}:</strong> {{ error }}</li>
+      {% endfor %}
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+
 <div class="container mt-5">
-    <h2 class="mb-4 text-center">Register New Student</h2>
+
+    <hr class="my-5">
+
+        <div class="container mt-4">
+            <h4 class="text-center">Or Upload Bulk Students</h4>
+            <p class="text-center">Download the preset Excel template, fill in student details, then upload it here.</p>
+    
+        <a href="{{ url_for('main.download_excel_template') }}" class="btn btn-outline-primary">
+            Download Excel Template
+        </a>                  
+
+            <form method="POST" action="{{ url_for('main.upload_bulk_students') }}" enctype="multipart/form-data" class="bg-light p-4 rounded shadow-sm">
+                <div class="mb-3">
+                    <label for="bulk_file" class="form-label">Upload Excel File (.xlsx or .csv)</label>
+                    <input type="file" class="form-control" name="bulk_file" id="bulk_file" accept=".xlsx,.csv" required>
+                </div>
+                <div class="text-center">
+                    <button type="submit" class="btn btn-success">Upload and Register Students</button>
+                </div>
+            </form>
+        </div>
+
+
+    <!-- <h2 class="mb-4 text-center">Register New Student</h2> -->
+    <h2 class="text-center mb-4">
+        {{ 'Edit Student' if edit_mode else 'Register New Student' }}
+    </h2>
+
 
     <form method="POST" class="bg-white p-4 rounded shadow-sm">
         {{ form.hidden_tag() }}
@@ -52,9 +94,10 @@
             {{ form.research_topic(class="form-control") }}
         </div>
 
-        <div class="text-center">
-            <button type="submit" class="btn btn-dark">{{ form.submit.label }}</button>
-        </div>
+        <button type="submit" class="btn btn-primary">
+            {{ 'Save Changes' if edit_mode else 'Register Student' }}
+        </button>
+
     </form>
 </div>
 

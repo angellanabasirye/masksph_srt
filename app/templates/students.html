@@ -1,52 +1,56 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Registered Students</title>
-    <!-- Bootstrap 5 CSS -->
-    <!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"> -->
-</head>
-<body>
+{% extends 'layouts/form_layout.html' %}
 
-    <h2>All Registered Students</h2>      
-        <form method="get" action="">
-            <input type="text" name="search" placeholder="Search by name, student number, or reg number" value="{{ search }}">
-            <button type="submit">Search</button>
+{% block title %}Registered Students{% endblock %}
 
-            <select name="program">
-                <option value="">-- Filter by Program --</option>
-                {% for p in programs %}
-                  <option value="{{ p[0] }}" {% if selected_program == p[0] %}selected{% endif %}>{{ p[0] }}</option>
-                {% endfor %}
-              </select>
-            
-              <select name="supervisor">
-                <option value="">-- Filter by Supervisor --</option>
-                {% for s in supervisors %}
-                  <option value="{{ s.id }}" {% if selected_supervisor == s.id %}selected{% endif %}>{{ s.full_name }}</option>
-                {% endfor %}
-              </select>
-            
-              <button type="submit">Apply Filters</button>
-        </form>
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">All Registered Students</h2>
+    <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary">← Back to Home</a>
+</div>
 
+<form method="get" class="row g-3 align-items-center mb-4">
+    <div class="col-md-4">
+        <input type="text" name="search" class="form-control" placeholder="Search by name, student number, or reg number" value="{{ search }}">
+    </div>
+    <div class="col-md-3">
+        <select name="program" class="form-select">
+            <option value="">-- Filter by Program --</option>
+            {% for p in programs %}
+                <option value="{{ p[0] }}" {% if selected_program == p[0] %}selected{% endif %}>{{ p[0] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select name="supervisor" class="form-select">
+            <option value="">-- Filter by Supervisor --</option>
+            {% for s in supervisors %}
+                <option value="{{ s.id }}" {% if selected_supervisor == s.id %}selected{% endif %}>{{ s.full_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2 text-end">
+        <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
+    </div>
+</form>
 
-    <table border="1" cellpadding="5">
-        <thead>
+<div class="table-responsive">
+    <table class="table table-bordered table-striped table-hover align-middle">
+        <thead class="table-dark">
             <tr>
-                <th>ID</th>
-                <th>Full Name</th>
-                <th>Email</th>
-                <th>Program</th>
-                <th>Student Number</th>
-                <th>Registration Number</th>
-                <th>Supervisor</th>
-                <th>Actions</th>
+                <th scope="col">#</th>
+                <th scope="col">Full Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Program</th>
+                <th scope="col">Student No.</th>
+                <th scope="col">Reg No.</th>
+                <th scope="col">Supervisors</th>
+                <th scope="col">Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for student in students %}
             <tr>
-                <td>{{ student.id }}</td>
+                <th scope="row">{{ student.id }}</th>
                 <td>{{ student.full_name }}</td>
                 <td>{{ student.email }}</td>
                 <td>{{ student.program }}</td>
@@ -54,25 +58,22 @@
                 <td>{{ student.registration_number }}</td>
                 <td>
                     {% if student.supervisors %}
-                      {{ student.supervisors | map(attribute='full_name') | join(', ') }}
+                        <span class="badge bg-info text-dark">{{ student.supervisors | map(attribute='full_name') | join(', ') }}</span>
                     {% else %}
-                      <a href="{{ url_for('main.assign_supervisors_form', student_id=student.id) }}">Assign</a>
+                        <a href="{{ url_for('main.assign_supervisors_form', student_id=student.id) }}" class="btn btn-sm btn-outline-warning">Assign</a>
                     {% endif %}
-                  </td>
+                </td>
                 <td>
-                    <a href="{{ url_for('main.assign_milestones', student_id=student.id) }}">Assign Milestones</a> |
-                    <a href="{{ url_for('main.student_progress', student_id=student.id) }}">View Progress</a> |
-                    <a href="{{ url_for('main.edit_student', student_id=student.id) }}">Edit</a> |
-                    <a href="{{ url_for('main.delete_student', student_id=student.id) }}" onclick="return confirm('Are you sure?')">Delete</a>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="{{ url_for('main.assign_milestones', student_id=student.id) }}" class="btn btn-outline-primary">Milestones</a>
+                        <a href="{{ url_for('main.student_progress', student_id=student.id) }}" class="btn btn-outline-success">Progress</a>
+                        <a href="{{ url_for('main.edit_student', student_id=student.id) }}" class="btn btn-outline-secondary">Edit</a>
+                        <a href="{{ url_for('main.delete_student', student_id=student.id) }}" class="btn btn-outline-danger" onclick="return confirm('Are you sure?')">Delete</a>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    <br>
-    <a href="{{ url_for('main.index') }}">← Back to Home</a>
-    <!-- Bootstrap 5 JS -->
-    <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script> -->
-
-</body>
-</html>
+</div>
+{% endblock %}

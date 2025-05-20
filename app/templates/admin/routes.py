@@ -5,7 +5,7 @@ from app.admin import admin_bp
 from app.models import User
 from flask import Blueprint
 
-admin_bp = Blueprint('admin', __name__)
+# admin_bp = Blueprint('admin', __name__)
 
 @admin_bp.route('/manage_users')
 @login_required

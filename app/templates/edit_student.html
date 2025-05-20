@@ -1,43 +1,86 @@
-<!DOCTYPE html>
-<html>
-<head><title>Edit Student</title></head>
-<body>
-  <h2>Edit Student</h2>
-  <form method="POST">
-    <label>Full Name:</label><br>
-    <input type="text" name="full_name" value="{{ student.full_name }}" required><br><br>
+{% raw %}
+{# templates/register.html #}
+{% extends 'layouts/form_layout.html' %}
 
-    <label>Email:</label><br>
-    <input type="email" name="email" value="{{ student.email }}" required><br><br>
+{% block title %}{{ 'Edit Student' if edit_mode else 'Register New Student' }}{% endblock %}
 
-    <label>Phone:</label><br>
-    <input type="text" name="phone"><br><br>
+{% block content %}
+{% if form.errors %}
+<div class="alert alert-danger">
+  <ul>
+    {% for field, errors in form.errors.items() %}
+      {% for error in errors %}
+        <li><strong>{{ field }}:</strong> {{ error }}</li>
+      {% endfor %}
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
 
-    <label>Registration Number:</label><br>
-    <input type="text" name="registration_number" required><br><br>
+<div class="container mt-5">
+    <h2 class="text-center mb-4">{{ 'Edit Student' if edit_mode else 'Register New Student' }}</h2>
 
-    <label>Student Number:</label><br>
-    <input type="text" name="student_number" required><br><br>
+    <!-- <form method="POST" class="bg-white p-4 rounded shadow-sm"> -->
+    <form method="POST" action="{{ url_for('main.edit_student', student_id=student.id) }}" class="bg-white p-4 rounded shadow-sm">
+        {{ form.hidden_tag() }}
 
-    <label>Program:</label><br>
-      <select name="program" required>
-          <option value="">-- Select Program --</option>
-          <option value="MHI">MHI</option>
-          <option value="MPH">MPH</option>
-          <option value="MPVC">MPVC</option>
-      </select><br><br>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                {{ form.full_name.label(class="form-label") }}
+                {{ form.full_name(class="form-control") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.gender.label(class="form-label") }}
+                {{ form.gender(class="form-select") }}
+            </div>
+        </div>
 
-    <label>Supervisor</label>
-      <select name="supervisor_id">
-        <option value="">-- Select Supervisor --</option>
-        {% for sup in supervisors %}
-          <option value="{{ sup.id }}" {% if student.supervisor_id == sup.id %}selected{% endif %}>{{ sup.full_name }}</option>
-        {% endfor %}
-      </select>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-control") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.phone.label(class="form-label") }}
+                {{ form.phone(class="form-control") }}
+            </div>
+        </div>
 
-    <button type="submit">Update</button>
-  </form>
-</body>
-<a href="{{ url_for('main.students') }}">← Back to Student List</a>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                {{ form.registration_number.label(class="form-label") }}
+                {{ form.registration_number(class="form-control") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.student_number.label(class="form-label") }}
+                {{ form.student_number(class="form-control") }}
+            </div>
+        </div>
 
-</html>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                {{ form.program.label(class="form-label") }}
+                {{ form.program(class="form-select") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.year_of_intake.label(class="form-label") }}
+                {{ form.year_of_intake(class="form-control") }}
+            </div>
+        </div>
+
+        <div class="mb-3">
+            {{ form.research_topic.label(class="form-label") }}
+            {{ form.research_topic(class="form-control") }}
+        </div>
+
+        <div class="text-center">
+            <button type="submit" class="btn btn-primary">{{ 'Save Changes' if edit_mode else 'Register Student' }}</button>
+        </div>
+    </form>
+
+    <div class="text-center mt-3">
+        <a href="{{ url_for('main.students') }}">&larr; Back to Student List</a>
+    </div>
+</div>
+{% endblock %}
+{% endraw %}
