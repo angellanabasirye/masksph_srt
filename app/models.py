@@ -2,7 +2,12 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from app.extensions import db
+from app import db
 
+faculty_roles = db.Table('faculty_roles',
+    db.Column('faculty_id', db.Integer, db.ForeignKey('faculty.id'), primary_key=True),
+    db.Column('role_id', db.Integer, db.ForeignKey('role.id'), primary_key=True)
+)
 
 student_supervisors = db.Table(
     'student_supervisors',
@@ -100,3 +105,22 @@ class Log(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     message = db.Column(db.String(255))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+
+class Faculty(db.Model):
+    __tablename__ = 'faculty'
+    id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
+    gender = db.Column(db.String(10), nullable=False)
+    department = db.Column(db.String(100), nullable=False)
+    professional_field = db.Column(db.String(100), nullable=True)
+
+    roles = db.relationship('Role', secondary=faculty_roles, backref=db.backref('faculties', lazy='dynamic'))
+
+class Role(db.Model):
+    __tablename__ = 'role'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)

@@ -38,10 +38,7 @@
       <!-- <a class="nav-link text-white" href="{{ url_for('admin.manage_users') }}">👥 Manage Users</a> -->
       <a class="nav-link text-white" href="{{ url_for('admin.manage_users') }}">👥 <span>Manage Users</span></a>
       <a class="nav-link text-white" href="{{ url_for('main.register') }}">➕ <span>Register Student</span></a>
-      <a class="nav-link text-white" href="{{ url_for('main.register_supervisor') }}">➕ <span>Register Supervisor</span></a>
-      {% if user.role == 'admin' %}
-      <a class="btn btn-secondary" href="{{ url_for('main.register_coordinator') }}">👩‍💼 Register Coordinator</a>
-      {% endif %}      
+      <a class="nav-link text-white" href="{{ url_for('main.register_faculty') }}">➕ <span>Register faculty</span></a>
       <a class="nav-link text-white" href="{{ url_for('main.students') }}">📋 <span>View Students</span></a>
       <a class="nav-link text-white" href="{{ url_for('main.milestones') }}">📌 <span>View Milestones</span></a>
     </nav>

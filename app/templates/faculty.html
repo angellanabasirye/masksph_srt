@@ -1,0 +1,91 @@
+{% extends 'layouts/form_layout.html' %}
+
+{% block title %}Faculty{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Faculty List</h2>
+        <a href="{{ url_for('main.register_faculty') }}" class="btn btn-dark">Register New Faculty</a>
+    </div>
+
+    <form method="GET" class="mb-3">
+        <div class="input-group">
+            <input type="text" name="search" class="form-control" placeholder="Search by name or email" value="{{ request.args.get('search', '') }}">
+            <button type="submit" class="btn btn-outline-secondary">Search</button>
+        </div>
+    </form>
+
+    <div class="card shadow">
+        <div class="card-body">
+            {% if faculties.items %}
+                <table class="table table-bordered table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Gender</th>
+                            <th>Department</th>
+                            <th>Roles</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for faculty in faculties.items %}
+                        <tr>
+                            <td>{{ loop.index + (faculties.page - 1) * faculties.per_page }}</td>
+                            <td>{{ faculty.full_name }}</td>
+                            <td>{{ faculty.email }}</td>
+                            <td>{{ faculty.phone or '—' }}</td>
+                            <td>{{ faculty.gender or '—' }}</td>
+                            <td>{{ faculty.department or '—' }}</td>
+                            <td>
+                                {% for role in faculty.roles %}
+                                    <span class="badge bg-secondary">{{ role.name }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('main.edit_faculty', faculty_id=faculty.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                                <a href="{{ url_for('main.delete_faculty', faculty_id=faculty.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this faculty member?');">Delete</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Pagination -->
+                <nav>
+                    <ul class="pagination justify-content-center">
+                        {% if faculties.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.faculty', page=faculties.prev_num, search=request.args.get('search')) }}">Previous</a>
+                            </li>
+                        {% endif %}
+                        {% for page_num in faculties.iter_pages() %}
+                            {% if page_num %}
+                                <li class="page-item {% if page_num == faculties.page %}active{% endif %}">
+                                    <a class="page-link" href="{{ url_for('main.faculty', page=page_num, search=request.args.get('search')) }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                            {% endif %}
+                        {% endfor %}
+                        {% if faculties.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.faculty', page=faculties.next_num, search=request.args.get('search')) }}">Next</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% else %}
+                <p class="text-muted">No faculty members found.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+
+{% endblock %}

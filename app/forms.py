@@ -1,9 +1,9 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SelectField, SubmitField, SelectMultipleField
+from wtforms import PasswordField
+from wtforms import StringField, SelectField, SelectMultipleField, SubmitField, TelField, HiddenField
 from wtforms.validators import DataRequired, Email, Length, ValidationError
 from app.models import User, Student, Supervisor
 from wtforms.widgets import ListWidget, CheckboxInput
-from wtforms import HiddenField
 
 class RegisterUserForm(FlaskForm):
     full_name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=100)])
@@ -92,6 +92,30 @@ class RegisterSupervisorForm(FlaskForm):
         if Supervisor.query.filter_by(email=email.data).first():
             raise ValidationError('This email is already registered.')
         
+
+class FacultyForm(FlaskForm):
+    full_name = StringField('Full Name', validators=[DataRequired()])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    phone = TelField('Phone', validators=[DataRequired()])
+    # department = StringField('Department', validators=[DataRequired()])
+    department = SelectField('Department', choices=[
+    ('', 'Select Department'),  # Placeholder
+    ('Epidemiology and Biostatistics', 'Epidemiology and Biostatistics'),
+    ('Health Policy, Planning and Management', 'Health Policy, Planning and Management'),
+    ('Community Health and Behavioural Sciences', 'Community Health and Behavioural Sciences'),
+    ('Disease Control and Environmental Health', 'Disease Control and Environmental Health'),
+    ('Other', 'Other')
+    ], validators=[DataRequired(message="Please select a department.")])
+    professional_field = StringField('Professional Field')
+    gender = SelectField('Gender', choices=[('Male', 'Male'), ('Female', 'Female')], validators=[DataRequired()])
+    roles = SelectMultipleField('Role(s)', choices=[
+    ('Supervisor', 'Supervisor'),
+    ('Program Coordinator', 'Program Coordinator'),
+    ('Overseer', 'Overseer'),
+    ('Program Admin', 'Program Administrator')
+], validators=[DataRequired(message="Please select at least one role.")])
+    submit = SubmitField('Register')
+
 
 class AssignSupervisorsForm(FlaskForm):
     student = HiddenField()

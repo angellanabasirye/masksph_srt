@@ -11,6 +11,8 @@ import os
 from werkzeug.utils import secure_filename
 from app.data_utils import allowed_file, process_student_excel
 from flask import Blueprint, render_template, send_from_directory, current_app
+from app.forms import FacultyForm
+from app.models import Faculty, Role
 
 
 # from app.auth_utils import role_required
@@ -77,40 +79,6 @@ def index():
 # ----------------------------------
 # Register Student
 # ----------------------------------
-# @main.route('/register', methods=['GET', 'POST'])
-# @login_required
-# def register():
-#     form = RegisterStudentForm()
-#     if form.validate_on_submit():
-#         reg_number = form.registration_number.data
-#         student_number = form.student_number.data
-
-#         existing = Student.query.filter(
-#             (Student.registration_number == reg_number) |
-#             (Student.student_number == student_number)
-#         ).first()
-
-#         if existing:
-#             flash('A student with this registration or student number already exists.', 'danger')
-#         else:
-#             new_student = Student(
-#                 full_name=form.full_name.data,
-#                 gender=form.gender.data,
-#                 email=form.email.data,
-#                 phone=form.phone.data,
-#                 registration_number=reg_number,
-#                 student_number=student_number,
-#                 program=form.program.data,
-#                 year_of_intake=form.year_of_intake.data,
-#                 research_topic=form.research_topic.data
-#             )
-#             db.session.add(new_student)
-#             db.session.commit()
-#             flash('Student registered successfully.', 'success')
-#             return redirect(url_for('main.students'))
-
-#     return render_template('register.html', form=form)
-
 @main.route('/register', methods=['GET', 'POST'])
 @login_required
 def register():
@@ -147,18 +115,25 @@ def register():
 
 
 # ----------------------------------
-# Register Supervisor
+# Register faculty
 # ----------------------------------
-@main.route('/register_supervisor', methods=['GET', 'POST'])
+@main.route('/register-faculty', methods=['GET', 'POST'])
 @login_required
-def register_supervisor():
-    form = RegisterSupervisorForm()
+def register_faculty():
+    form = FacultyForm()
+
+    # Bind submitted roles manually
+    if request.method == 'POST':
+        form.roles.data = request.form.getlist('roles[]')
 
     if form.validate_on_submit():
-        if Supervisor.query.filter_by(email=form.email.data).first():
+        print("Roles selected:", form.roles.data)
+        print("Saving:", form.full_name.data)
+
+        if Faculty.query.filter_by(email=form.email.data).first():
             flash('Email already exists.', 'danger')
         else:
-            new_supervisor = Supervisor(
+            new_faculty = Faculty(
                 full_name=form.full_name.data,
                 email=form.email.data,
                 phone=form.phone.data,
@@ -166,12 +141,80 @@ def register_supervisor():
                 department=form.department.data,
                 professional_field=form.professional_field.data
             )
-            db.session.add(new_supervisor)
-            db.session.commit()
-            flash('Supervisor registered successfully.', 'success')
-            return redirect(url_for('main.supervisors'))
+            selected_roles = Role.query.filter(Role.name.in_(form.roles.data)).all()
+            new_faculty.roles.extend(selected_roles)
 
-    return render_template('register_supervisor.html', form=form)
+            db.session.add(new_faculty)
+            db.session.commit()
+            flash('Faculty registered successfully.', 'success')
+            return redirect(url_for('main.faculty'))
+
+    else:
+        print("Form failed to validate")
+        print("Form errors:", form.errors)
+
+    return render_template('register_faculty.html', form=form)
+
+
+# ----------------------------------
+# View faculty list
+# ----------------------------------
+@main.route('/faculty')
+@login_required
+def faculty():
+    search = request.args.get('search', '')
+    page = request.args.get('page', 1, type=int)
+
+    query = Faculty.query
+    if search:
+        query = query.filter(
+            (Faculty.full_name.ilike(f"%{search}%")) |
+            (Faculty.email.ilike(f"%{search}%"))
+        )
+
+    faculties = query.order_by(Faculty.full_name).paginate(page=page, per_page=10)
+    return render_template('faculty.html', faculties=faculties)
+
+# ----------------------------------
+# Edit faculty
+# ----------------------------------
+@main.route('/faculty/edit/<int:faculty_id>', methods=['GET', 'POST'])
+@login_required
+def edit_faculty(faculty_id):
+    faculty = Faculty.query.get_or_404(faculty_id)
+    form = FacultyForm(obj=faculty)
+
+    if request.method == 'POST':
+        form.roles.data = request.form.getlist('roles[]')
+
+    if form.validate_on_submit():
+        faculty.full_name = form.full_name.data
+        faculty.email = form.email.data
+        faculty.phone = form.phone.data
+        faculty.gender = form.gender.data
+        faculty.department = form.department.data
+        faculty.professional_field = form.professional_field.data
+
+        selected_roles = Role.query.filter(Role.name.in_(form.roles.data)).all()
+        faculty.roles = selected_roles
+
+        db.session.commit()
+        flash('Faculty updated successfully.', 'success')
+        return redirect(url_for('main.faculty'))
+
+    return render_template('register_faculty.html', form=form, editing=True)
+
+# ----------------------------------
+# delete faculty member
+# ----------------------------------
+@main.route('/faculty/delete/<int:faculty_id>')
+@login_required
+def delete_faculty(faculty_id):
+    faculty = Faculty.query.get_or_404(faculty_id)
+    db.session.delete(faculty)
+    db.session.commit()
+    flash('Faculty member deleted successfully.', 'success')
+    return redirect(url_for('main.faculty'))
 
 
 # ----------------------------------
@@ -242,25 +285,6 @@ def students():
 # ----------------------------------
 # Edit Student
 # ----------------------------------
-# @main.route('/edit-student/<int:student_id>', methods=['GET', 'POST'])
-# def edit_student(student_id):
-#     student = Student.query.get_or_404(student_id)
-#     supervisors = Supervisor.query.order_by(Supervisor.full_name).all()
-
-#     if request.method == 'POST':
-#         student.full_name = request.form['full_name']
-#         student.email = request.form['email']
-#         student.program = request.form['program']
-#         student.phone = request.form.get('phone')
-#         student.reg_number = request.form['registration_number']
-#         student.student_number = request.form['student_number']
-#         student.supervisor_id = request.form.get('supervisor_id') or None
-#         db.session.commit()
-#         flash('Student updated successfully.')
-#         return redirect(url_for('main.students'))
-
-#     return render_template('edit_student.html', student=student, supervisors=supervisors)
-
 @main.route('/edit-student/<int:student_id>', methods=['GET', 'POST'])
 @login_required
 def edit_student(student_id):
@@ -279,7 +303,6 @@ def edit_student(student_id):
 
     return render_template('register.html', form=form, edit_mode=True, student=student)
 
-    
 
 # ----------------------------------
 # Delete Student
@@ -466,29 +489,6 @@ def dashboard():
 
 from app.auth_utils import admin_required
 
-@main.route('/register_coordinator', methods=['GET', 'POST'])
-def register_coordinator():
-    if request.method == 'POST':
-        full_name = request.form['full_name']
-        email = request.form['email']
-        phone = request.form['phone']
-        program = request.form['program']
-
-        # Save coordinator logic goes here
-        new_user = User(
-            full_name=full_name,
-            email=email,
-            phone=phone,
-            program=program,
-            role='coordinator'
-        )
-        db.session.add(new_user)
-        db.session.commit()
-
-        flash('Coordinator registered successfully.', 'success')
-        return redirect(url_for('main.students'))  # Adjust as needed
-
-    return render_template('register_cordinator.html')
 
 @main.route('/supervisors')
 @login_required
@@ -540,7 +540,7 @@ from flask import send_from_directory, current_app
 def download_excel_template():  
     return send_from_directory(
         directory=current_app.static_folder,
-        path='student_bulk_template_with_instructions.xlsx',
+        path='student_bulk_template.xlsx',
         as_attachment=True
     )
 
