@@ -6,7 +6,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.forms import RegisterUserForm, RegisterStudentForm
 from werkzeug.security import generate_password_hash
 from app.forms import RegisterUserForm, RegisterStudentForm, RegisterSupervisorForm, AssignSupervisorsForm
-from app.models import db, Student, Supervisor, StudentMilestone, Milestone, User
+from app.models import db, Student, StudentMilestone, Milestone, User
 import os
 from werkzeug.utils import secure_filename
 from app.data_utils import allowed_file, process_student_excel
@@ -29,7 +29,7 @@ def index():
 
     # Calculate statistics first (common data)
     total_students = Student.query.count()
-    total_supervisors = Supervisor.query.count()
+    total_supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).count()
     unassigned_students = Student.query.filter(~Student.supervisors.any()).count()
 
     completed_students = 0
@@ -221,20 +221,23 @@ def delete_faculty(faculty_id):
 # View assign supervisor
 # ----------------------------------
 @main.route('/assign-supervisors/<int:student_id>', methods=['GET', 'POST'])
-def assign_supervisors_form(student_id):
+def assign_supervisors(student_id):
     student = Student.query.get_or_404(student_id)
-    form = AssignSupervisorsForm()
 
-    # Set the choices dynamically
-    form.supervisors.choices = [(s.id, s.full_name) for s in Supervisor.query.all()]
+    supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).all()
+
+    form = AssignSupervisorsForm()
+    form.supervisors.choices = [
+        (s.id, f"{s.full_name} - {s.department or 'N/A'} - {s.professional_field or 'N/A'}")
+        for s in supervisors
+    ]
 
     if form.validate_on_submit():
-        selected_ids = form.supervisors.data
-        selected_supervisors = Supervisor.query.filter(Supervisor.id.in_(selected_ids)).all()
+        selected_supervisors = Faculty.query.filter(Faculty.id.in_(form.supervisors.data)).all()
         student.supervisors = selected_supervisors
         db.session.commit()
-        flash('Supervisors assigned successfully.', 'success')
-        return redirect(url_for('main.students'))
+        flash("Supervisors assigned successfully.", "success")
+        return redirect(url_for('main.students', student_id=student.id))
 
     return render_template('assign_supervisors.html', student=student, form=form)
 
@@ -249,7 +252,7 @@ def students():
     selected_supervisor = request.args.get('supervisor', type=int)
     page = request.args.get('page', 1, type=int)
 
-    supervisors = Supervisor.query.order_by(Supervisor.full_name).all()
+    supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).order_by(Faculty.full_name).all()
     programs = db.session.query(Student.program).distinct().all()
 
     query = Student.query
@@ -338,16 +341,21 @@ def milestones():
 @main.route('/assign-milestones/<int:student_id>', methods=['GET', 'POST'])
 def assign_milestones(student_id):
     student = Student.query.get_or_404(student_id)
-    milestones = Milestone.query.all()
+    milestones = Milestone.query.order_by(Milestone.id).all()
 
     if request.method == 'POST':
-        selected_ids = request.form.getlist('milestones')
+        selected_ids = list(map(int, request.form.getlist('milestones')))
 
-        # Remove existing ones to prevent duplicates
+        # Enforce sequential completion
+        if selected_ids != list(range(1, len(selected_ids) + 1)):
+            flash('Please assign milestones in the correct order.')
+            return redirect(url_for('main.assign_milestones', student_id=student.id))
+
+        # Remove previous records to avoid duplicates
         StudentMilestone.query.filter_by(student_id=student.id).delete()
 
         for milestone_id in selected_ids:
-            sm = StudentMilestone(student_id=student.id, milestone_id=int(milestone_id), completed=False)
+            sm = StudentMilestone(student_id=student.id, milestone_id=milestone_id, completed=False)
             db.session.add(sm)
 
         db.session.commit()
@@ -355,7 +363,29 @@ def assign_milestones(student_id):
         return redirect(url_for('main.students'))
 
     assigned_ids = {sm.milestone_id for sm in student.student_milestones}
-    return render_template('assign_milestones.html', student=student, milestones=milestones, assigned_ids=assigned_ids)
+    return render_template('assign_milestones.html',
+                           student=student,
+                           milestones=milestones,
+                           assigned_ids=assigned_ids)
+
+
+@main.route('/seed-milestones')
+def seed_milestones():
+    default_milestones = [
+        "Concept presentation and approval",
+        "Proposal writing",
+        "Proposal defence and approval",
+        "Dissertation writing",
+        "Dissertation Defence",
+        "Compliance and Final dissertation submission"
+    ]
+
+    for name in default_milestones:
+        if not Milestone.query.filter_by(name=name).first():
+            db.session.add(Milestone(name=name))
+    db.session.commit()
+    return "Milestones seeded successfully."
+
 
 # ----------------------------------
 # View Student Progress
@@ -439,7 +469,7 @@ def logout():
 def dashboard():
     # Calculate statistics (shared across dashboards)
     total_students = Student.query.count()
-    total_supervisors = Supervisor.query.count()
+    total_supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).count()
     unassigned_students = Student.query.filter(~Student.supervisors.any()).count()
 
     completed_students = 0
@@ -489,22 +519,32 @@ def dashboard():
 
 from app.auth_utils import admin_required
 
-
+# ----------------------------------
+# View Supervisors
+# ----------------------------------
 @main.route('/supervisors')
-@login_required
 def supervisors():
-    search_query = request.args.get('search', '', type=str)
+    search_query = request.args.get('search', '')
     page = request.args.get('page', 1, type=int)
-    per_page = 10
 
-    query = Supervisor.query
+    # Base query: only Faculty members with 'Supervisor' role
+    query = Faculty.query.filter(Faculty.roles.any(name='Supervisor'))
+
+    # Add search filter
     if search_query:
-        search = f"%{search_query}%"
-        query = query.filter((Supervisor.full_name.ilike(search)) | (Supervisor.email.ilike(search)))
+        query = query.filter(
+            (Faculty.full_name.ilike(f'%{search_query}%')) |
+            (Faculty.email.ilike(f'%{search_query}%'))
+        )
 
-    paginated_supervisors = query.order_by(Supervisor.full_name).paginate(page=page, per_page=per_page)
-    return render_template('supervisors.html', supervisors=paginated_supervisors)
+    # Paginate results
+    supervisors = query.order_by(Faculty.full_name).paginate(page=page, per_page=10)
 
+    return render_template('supervisors.html', supervisors=supervisors)
+
+# ----------------------------------
+# edit Supervisors
+# ----------------------------------
 @main.route('/supervisors/edit/<int:supervisor_id>', methods=['GET', 'POST'])
 @login_required
 def edit_supervisor(supervisor_id):
@@ -523,11 +563,13 @@ def edit_supervisor(supervisor_id):
 
     return render_template('register_supervisor.html', form=form, editing=True)
 
-
+# ----------------------------------
+# delete Supervisors
+# ----------------------------------
 @main.route('/supervisors/delete/<int:supervisor_id>')
 @login_required
 def delete_supervisor(supervisor_id):
-    supervisor = Supervisor.query.get_or_404(supervisor_id)
+    supervisor = supervisors.query.get_or_404(supervisor_id)
     db.session.delete(supervisor)
     db.session.commit()
     flash('Supervisor deleted.', 'success')

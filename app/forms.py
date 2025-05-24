@@ -2,8 +2,9 @@ from flask_wtf import FlaskForm
 from wtforms import PasswordField
 from wtforms import StringField, SelectField, SelectMultipleField, SubmitField, TelField, HiddenField
 from wtforms.validators import DataRequired, Email, Length, ValidationError
-from app.models import User, Student, Supervisor
+from app.models import User, Student
 from wtforms.widgets import ListWidget, CheckboxInput
+from wtforms.validators import InputRequired
 
 class RegisterUserForm(FlaskForm):
     full_name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=100)])
@@ -44,30 +45,23 @@ class RegisterStudentForm(FlaskForm):
     research_topic = StringField('Research Topic', validators=[DataRequired()])
     submit = SubmitField('Register Student')
 
+    def __init__(self, *args, **kwargs):
+        self._obj = kwargs.get('obj')  
+        super().__init__(*args, **kwargs)
+
     def validate_registration_number(self, field):
-        if Student.query.filter_by(registration_number=field.data).first():
+        existing = Student.query.filter_by(registration_number=field.data).first()
+        if existing and (not self._obj or existing.id != self._obj.id):
             raise ValidationError('Registration number already exists.')
 
     def validate_student_number(self, field):
-        if Student.query.filter_by(student_number=field.data).first():
+        existing = Student.query.filter_by(student_number=field.data).first()
+        if existing and (not self._obj or existing.id != self._obj.id):
             raise ValidationError('Student number already exists.')
         
 class MultiCheckboxField(SelectMultipleField):
     widget = ListWidget(prefix_label=False)
     option_widget = CheckboxInput()
-
-
-class RegisterSupervisorForm(FlaskForm):
-    full_name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=100)])
-    email = StringField('Email', validators=[DataRequired(), Email()])
-    phone = StringField('Phone Number', validators=[Length(max=15)])
-    gender = SelectField('Gender', choices=[('Male', 'Male'), ('Female', 'Female')], validators=[DataRequired()])
-    
-    submit = SubmitField('Register Supervisor')
-
-    def validate_email(self, email):
-        if Supervisor.query.filter_by(email=email.data).first():
-            raise ValidationError('Email already registered.')
         
 
 class AssignSupervisorsForm(FlaskForm):
@@ -116,9 +110,11 @@ class FacultyForm(FlaskForm):
 ], validators=[DataRequired(message="Please select at least one role.")])
     submit = SubmitField('Register')
 
-
 class AssignSupervisorsForm(FlaskForm):
-    student = HiddenField()
-    supervisors = SelectMultipleField('Select Supervisors', coerce=int, validators=[DataRequired()])
+    supervisors = MultiCheckboxField(
+        'Select Supervisors',
+        coerce=int,
+        validators=[InputRequired(message="Select at least one supervisor.")]
+    )
     submit = SubmitField('Assign')
     

@@ -57,11 +57,15 @@
                 <td>{{ student.student_number }}</td>
                 <td>{{ student.registration_number }}</td>
                 <td>
-                    {% if student.supervisors %}
-                        <span class="badge bg-info text-dark">{{ student.supervisors | map(attribute='full_name') | join(', ') }}</span>
-                    {% else %}
-                        <a href="{{ url_for('main.assign_supervisors_form', student_id=student.id) }}" class="btn btn-sm btn-outline-warning">Assign</a>
-                    {% endif %}
+                    <a href="{{ url_for('main.assign_supervisors', student_id=student.id) }}" class="text-decoration-none">
+                        {% if student.supervisors %}
+                            <span class="badge bg-info text-dark">
+                                {{ student.supervisors | map(attribute='full_name') | join(', ') }}
+                            </span>
+                        {% else %}
+                            <span class="btn btn-sm btn-outline-warning">Assign</span>
+                        {% endif %}
+                    </a>
                 </td>
                 <td>
                     <div class="btn-group btn-group-sm" role="group">
@@ -69,6 +73,7 @@
                         <a href="{{ url_for('main.student_progress', student_id=student.id) }}" class="btn btn-outline-success">Progress</a>
                         <a href="{{ url_for('main.edit_student', student_id=student.id) }}" class="btn btn-outline-secondary">Edit</a>
                         <a href="{{ url_for('main.delete_student', student_id=student.id) }}" class="btn btn-outline-danger" onclick="return confirm('Are you sure?')">Delete</a>
+                        <a href="{{ url_for('main.assign_supervisors', student_id=student.id) }}" title="Edit Supervisors">
                     </div>
                 </td>
             </tr>

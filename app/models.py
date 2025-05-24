@@ -12,18 +12,8 @@ faculty_roles = db.Table('faculty_roles',
 student_supervisors = db.Table(
     'student_supervisors',
     db.Column('student_id', db.Integer, db.ForeignKey('student.id'), primary_key=True),
-    db.Column('supervisor_id', db.Integer, db.ForeignKey('supervisor.id'), primary_key=True)
+    db.Column('faculty_id', db.Integer, db.ForeignKey('faculty.id'), primary_key=True)
 )
-
-class StudentMilestone(db.Model):
-    __tablename__ = 'student_milestone'
-    id = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.Integer, db.ForeignKey('student.id'))
-    milestone_id = db.Column(db.Integer, db.ForeignKey('milestone.id'))
-    completed = db.Column(db.Boolean, default=False)
-
-    student = db.relationship('Student', back_populates='student_milestones')
-    milestone = db.relationship('Milestone')
 
 class Student(db.Model):
     __tablename__ = 'student'
@@ -39,28 +29,11 @@ class Student(db.Model):
     research_topic = db.Column(db.String(255))
     
     student_milestones = db.relationship('StudentMilestone', back_populates='student')
-    supervisor_id = db.Column(db.Integer, db.ForeignKey('supervisor.id'))
     supervisors = db.relationship(
-        'Supervisor',
-        secondary=student_supervisors,
+        'Faculty',
+        secondary='student_supervisors',
         back_populates='students'
-    )
-
-class Supervisor(db.Model):
-    __tablename__ = 'supervisor'
-    id = db.Column(db.Integer, primary_key=True)
-    full_name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    phone = db.Column(db.String(20))
-    gender = db.Column(db.String(10))
-    department = db.Column(db.String(100))
-    professional_field = db.Column(db.String(100))
-
-    students = db.relationship(
-        'Student',
-        secondary=student_supervisors,
-        back_populates='supervisors'
-    )
+)
 
 class Milestone(db.Model):
     __tablename__ = 'milestone'
@@ -119,8 +92,47 @@ class Faculty(db.Model):
     professional_field = db.Column(db.String(100), nullable=True)
 
     roles = db.relationship('Role', secondary=faculty_roles, backref=db.backref('faculties', lazy='dynamic'))
+    students = db.relationship(
+        'Student',
+        secondary='student_supervisors',
+        back_populates='supervisors'
+    )
 
 class Role(db.Model):
     __tablename__ = 'role'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
+
+class Milestone(db.Model):
+    __tablename__ = 'milestones'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+
+    subtasks = db.relationship('Subtask', backref='milestone', lazy=True)
+
+
+class Subtask(db.Model):
+    __tablename__ = 'subtasks'
+    id = db.Column(db.Integer, primary_key=True)
+    milestone_id = db.Column(db.Integer, db.ForeignKey('milestones.id'), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    sequence_order = db.Column(db.Integer, nullable=False)
+
+
+class StudentMilestone(db.Model):
+    __tablename__ = 'student_milestones'
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    milestone_id = db.Column(db.Integer, db.ForeignKey('milestones.id'), nullable=False)
+    completed = db.Column(db.Boolean, default=False)
+
+
+class StudentSubtask(db.Model):
+    __tablename__ = 'student_subtasks'
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    subtask_id = db.Column(db.Integer, db.ForeignKey('subtasks.id'), nullable=False)
+    status = db.Column(db.String(50), default='pending')  # pending | in_progress | completed
+    comment = db.Column(db.Text)
+    date_completed = db.Column(db.DateTime)
