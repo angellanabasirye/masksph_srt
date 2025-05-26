@@ -6,13 +6,13 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.forms import RegisterUserForm, RegisterStudentForm
 from werkzeug.security import generate_password_hash
 from app.forms import RegisterUserForm, RegisterStudentForm, RegisterSupervisorForm, AssignSupervisorsForm
-from app.models import db, Student, StudentMilestone, Milestone, User
+from app.models import db, Student, StudentMilestone, Milestone, User, Subtask, StudentSubtask
 import os
 from werkzeug.utils import secure_filename
 from app.data_utils import allowed_file, process_student_excel
 from flask import Blueprint, render_template, send_from_directory, current_app
 from app.forms import FacultyForm
-from app.models import Faculty, Role
+from app.models import Faculty, Role, Milestone
 
 
 # from app.auth_utils import role_required
@@ -26,8 +26,7 @@ main = Blueprint('main', __name__)
 @main.route('/')
 @login_required
 def index():
-
-    # Calculate statistics first (common data)
+    # Gather common statistics
     total_students = Student.query.count()
     total_supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).count()
     unassigned_students = Student.query.filter(~Student.supervisors.any()).count()
@@ -41,6 +40,7 @@ def index():
 
     average_completion = round((completed_students / total_students) * 100, 2) if total_students > 0 else 0
 
+    # Yearly intake distribution
     try:
         year_data = (
             db.session.query(Student.year_of_intake, func.count())
@@ -49,7 +49,7 @@ def index():
         )
         year_of_intakes = [item[0] for item in year_data]
         intake_counts = [item[1] for item in year_data]
-    except AttributeError:
+    except Exception:
         year_of_intakes = []
         intake_counts = []
 
@@ -63,18 +63,20 @@ def index():
         'intake_counts': intake_counts,
     }
 
-    # Role-based dashboard routing
-    if current_user.role == 'student':
-        return render_template('dashboards/student.html', user=current_user, stats=stats)
-    elif current_user.role == 'supervisor':
-        return render_template('dashboards/supervisor.html', user=current_user, stats=stats)
-    elif current_user.role == 'coordinator':
-        return render_template('dashboards/coordinator.html', user=current_user, stats=stats)
-    elif current_user.role == 'admin':
-        return render_template('dashboards/admin.html', user=current_user, stats=stats)
+    # Role-based redirection
+    role = current_user.role.lower() if current_user.role else ""
 
-    # Default fallback (optional)
-    return render_template('index.html', stats=stats, user=current_user)
+    if role == 'student':
+        return render_template('dashboards/student.html', user=current_user, stats=stats)
+    elif role == 'supervisor':
+        return render_template('dashboards/supervisor.html', user=current_user, stats=stats)
+    elif role == 'coordinator':
+        return render_template('dashboards/coordinator.html', user=current_user, stats=stats)
+    elif role == 'admin':
+        return render_template('dashboards/admin.html', user=current_user, stats=stats)
+    else:
+        flash("Unrecognized role. Please contact the system administrator.", "danger")
+        return redirect(url_for('main.logout'))
 
 # ----------------------------------
 # Register Student
@@ -95,7 +97,18 @@ def register():
         if existing:
             flash('A student with this registration or student number already exists.', 'danger')
         else:
+            # Create user for the student
+            user = User(
+                full_name=form.full_name.data,
+                email=form.email.data,
+                role='student'
+            )
+            user.set_password('12345')
+            db.session.add(user)
+            db.session.flush()  # get user.id
+
             new_student = Student(
+                user_id=user.id,
                 full_name=form.full_name.data,
                 gender=form.gender.data,
                 email=form.email.data,
@@ -113,45 +126,59 @@ def register():
 
     return render_template('register.html', form=form, edit_mode=False)
 
-
 # ----------------------------------
 # Register faculty
 # ----------------------------------
-@main.route('/register-faculty', methods=['GET', 'POST'])
+@main.route('/register_faculty', methods=['GET', 'POST'])
 @login_required
 def register_faculty():
     form = FacultyForm()
 
-    # Bind submitted roles manually
-    if request.method == 'POST':
-        form.roles.data = request.form.getlist('roles[]')
+    form.roles.data = request.form.getlist("roles")
+    selected_roles = form.roles.data  
+    role_objects = Role.query.filter(Role.name.in_(selected_roles)).all()
 
     if form.validate_on_submit():
-        print("Roles selected:", form.roles.data)
-        print("Saving:", form.full_name.data)
+        email = form.email.data
+        full_name = form.full_name.data
 
-        if Faculty.query.filter_by(email=form.email.data).first():
-            flash('Email already exists.', 'danger')
-        else:
-            new_faculty = Faculty(
-                full_name=form.full_name.data,
-                email=form.email.data,
-                phone=form.phone.data,
-                gender=form.gender.data,
-                department=form.department.data,
-                professional_field=form.professional_field.data
-            )
-            selected_roles = Role.query.filter(Role.name.in_(form.roles.data)).all()
-            new_faculty.roles.extend(selected_roles)
+        existing_faculty = Faculty.query.filter_by(email=email).first()
+        existing_user = User.query.filter_by(email=email).first()
 
-            db.session.add(new_faculty)
-            db.session.commit()
-            flash('Faculty registered successfully.', 'success')
-            return redirect(url_for('main.faculty'))
+        if existing_faculty or existing_user:
+            flash("Faculty with this email already exists.", "danger")
+            return redirect(url_for('main.register_faculty'))
 
-    else:
-        print("Form failed to validate")
-        print("Form errors:", form.errors)
+        # Create User account
+        new_user = User(
+            full_name=full_name,
+            email=email,
+            role="faculty",
+            password=generate_password_hash("12345") 
+            
+        )
+        db.session.add(new_user)
+        db.session.flush()  # so user.id is available
+
+        # Create Faculty profile
+        new_faculty = Faculty(
+            full_name=full_name,
+            email=email,
+            phone=form.phone.data,
+            gender=form.gender.data,
+            department=form.department.data,
+            professional_field=form.professional_field.data,
+            user_id=new_user.id,
+            roles=role_objects
+        )
+        db.session.add(new_faculty)
+        db.session.commit()
+
+        flash(f"Faculty {full_name} registered successfully.", "success")
+        return redirect(url_for('main.faculty'))
+
+    if form.errors:
+        print("Form Errors:", form.errors)
 
     return render_template('register_faculty.html', form=form)
 
@@ -341,21 +368,16 @@ def milestones():
 @main.route('/assign-milestones/<int:student_id>', methods=['GET', 'POST'])
 def assign_milestones(student_id):
     student = Student.query.get_or_404(student_id)
-    milestones = Milestone.query.order_by(Milestone.id).all()
+    milestones = Milestone.query.all()
 
     if request.method == 'POST':
-        selected_ids = list(map(int, request.form.getlist('milestones')))
+        selected_ids = request.form.getlist('milestones')
 
-        # Enforce sequential completion
-        if selected_ids != list(range(1, len(selected_ids) + 1)):
-            flash('Please assign milestones in the correct order.')
-            return redirect(url_for('main.assign_milestones', student_id=student.id))
-
-        # Remove previous records to avoid duplicates
+        # Reassign all milestones
         StudentMilestone.query.filter_by(student_id=student.id).delete()
 
         for milestone_id in selected_ids:
-            sm = StudentMilestone(student_id=student.id, milestone_id=milestone_id, completed=False)
+            sm = StudentMilestone(student_id=student.id, milestone_id=int(milestone_id), completed=False)
             db.session.add(sm)
 
         db.session.commit()
@@ -363,10 +385,28 @@ def assign_milestones(student_id):
         return redirect(url_for('main.students'))
 
     assigned_ids = {sm.milestone_id for sm in student.student_milestones}
-    return render_template('assign_milestones.html',
-                           student=student,
-                           milestones=milestones,
-                           assigned_ids=assigned_ids)
+
+    # Load subtasks with student status
+    milestone_subtasks = {}
+    for milestone in milestones:
+        subtasks = Subtask.query.filter_by(milestone_id=milestone.id).order_by(Subtask.sequence_order).all()
+        subtasks_with_status = []
+        for st in subtasks:
+            status_entry = StudentSubtask.query.filter_by(student_id=student.id, subtask_id=st.id).first()
+            subtasks_with_status.append({
+                'subtask': st,
+                'status': status_entry.status if status_entry else 'pending',
+                'comment': status_entry.comment if status_entry else ''
+            })
+        milestone_subtasks[milestone.id] = subtasks_with_status
+
+    return render_template(
+        'assign_milestones.html',
+        student=student,
+        milestones=milestones,
+        assigned_ids=assigned_ids,
+        milestone_subtasks=milestone_subtasks
+    )
 
 
 @main.route('/seed-milestones')
@@ -445,16 +485,47 @@ def login():
             return redirect(url_for('main.login'))
 
         user = User.query.filter_by(email=email).first()
+
         if user and user.check_password(password):
             login_user(user)
             flash('Logged in successfully.', 'success')
-            return redirect(url_for('main.dashboard'))  # Adjust route as needed
+            return redirect(url_for('main.dashboard'))
+
         else:
             flash('Invalid credentials.', 'danger')
             return redirect(url_for('main.login'))
-        
-    get_flashed_messages()
+
     return render_template('login.html')
+
+
+@main.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm = request.form.get('confirm_password')
+
+        if not new_password or new_password != confirm:
+            flash("Passwords do not match.", "danger")
+            return redirect(url_for('main.change_password'))
+
+        current_user.set_password(new_password)
+        current_user.first_login = False
+        db.session.commit()
+
+        flash("Password changed successfully.", "success")
+
+        # Redirect based on role
+        if current_user.role == 'admin':
+            return redirect(url_for('main.dashboard'))
+        elif current_user.role == 'student':
+            return redirect(url_for('main.student_dashboard'))
+        elif current_user.role == 'supervisor' or current_user.role == 'faculty':
+            return redirect(url_for('main.supervisor_dashboard'))
+
+    return render_template('change_password.html')
+
+
 
 @main.route('/logout')
 @login_required
@@ -467,31 +538,22 @@ def logout():
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    # Calculate statistics (shared across dashboards)
+    # Shared statistics
     total_students = Student.query.count()
     total_supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).count()
     unassigned_students = Student.query.filter(~Student.supervisors.any()).count()
 
     completed_students = 0
-    students = Student.query.all()
-    for student in students:
-        assigned = student.student_milestones
-        if assigned and all(sm.completed for sm in assigned):
+    for student in Student.query.all():
+        milestones = student.student_milestones
+        if milestones and all(sm.completed for sm in milestones):
             completed_students += 1
 
-    average_completion = round((completed_students / total_students) * 100, 2) if total_students > 0 else 0
+    average_completion = round((completed_students / total_students) * 100, 2) if total_students else 0
 
-    try:
-        year_data = (
-            db.session.query(Student.year_of_intake, func.count())
-            .group_by(Student.year_of_intake)
-            .all()
-        )
-        year_of_intakes = [item[0] for item in year_data]
-        intake_counts = [item[1] for item in year_data]
-    except AttributeError:
-        year_of_intakes = []
-        intake_counts = []
+    year_data = db.session.query(Student.year_of_intake, func.count()).group_by(Student.year_of_intake).all()
+    year_of_intakes = [item[0] for item in year_data]
+    intake_counts = [item[1] for item in year_data]
 
     stats = {
         'total_students': total_students,
@@ -503,18 +565,32 @@ def dashboard():
         'intake_counts': intake_counts,
     }
 
+    # Dashboard Routing Logic
     role = current_user.role
+
     if role == 'admin':
         return render_template('dashboards/admin.html', user=current_user, stats=stats)
-    elif role == 'coordinator':
-        return render_template('dashboards/coordinator.html', user=current_user, stats=stats)
-    elif role == 'supervisor':
-        return render_template('dashboards/supervisor.html', user=current_user, stats=stats)
+
     elif role == 'student':
-        return render_template('dashboards/student.html', user=current_user, stats=stats)
-    else:
-        flash('Unknown role. Contact administrator.', 'danger')
-        return redirect(url_for('main.logout'))
+        return render_template('dashboards/student.html', user=current_user, student=current_user.student_profile, stats=stats)
+
+    elif role == 'faculty':
+        faculty = Faculty.query.filter_by(email=current_user.email).first()
+        if faculty:
+            field = (faculty.professional_field or '').lower()
+            if field == 'coordinator':
+                return render_template('dashboards/coordinator.html', user=current_user, stats=stats)
+            elif field == 'ip':
+                return render_template('dashboards/ip.html', user=current_user, stats=stats)
+            else:
+                return render_template('dashboards/supervisor.html', user=current_user, stats=stats)
+        else:
+            flash("Faculty profile not found. Contact administrator.", "danger")
+            return redirect(url_for('main.logout'))
+
+    flash("Unknown role. Contact administrator.", "danger")
+    return redirect(url_for('main.logout'))
+
 
 
 from app.auth_utils import admin_required
@@ -610,3 +686,221 @@ def upload_bulk_students():
 @main.route('/debug-static')
 def debug_static():
     return f"Static folder path: {current_app.static_folder}"
+
+
+@main.route('/my-progress')
+@login_required
+def my_progress():
+    if current_user.role != 'student':
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for('main.dashboard'))
+
+    student = current_user.student_profile
+    if not student:
+        flash("Student profile not found.", "danger")
+        return redirect(url_for('main.dashboard'))
+
+    milestones = Milestone.query.all()
+
+    milestone_subtasks = {}
+    for milestone in milestones:
+        milestone_subtasks[milestone.id] = []
+        for subtask in milestone.subtasks:
+            student_subtask = StudentSubtask.query.filter_by(
+                student_id=student.id,
+                subtask_id=subtask.id
+            ).first()
+            milestone_subtasks[milestone.id].append({
+                'subtask': subtask,
+                'status': student_subtask.status if student_subtask else 'pending'
+            })
+
+    return render_template('student_progress.html', student=student, milestones=milestones, milestone_subtasks=milestone_subtasks)
+
+
+@main.route('/update-subtasks', methods=['GET', 'POST'])
+@login_required
+def update_subtasks():
+    student = Student.query.filter_by(email=current_user.email).first_or_404()
+    milestones = Milestone.query.order_by(Milestone.id).all()
+
+    if request.method == 'POST':
+        for key, value in request.form.items():
+            if key.startswith("subtask_"):
+                subtask_id = int(key.split("_")[1])
+                entry = StudentSubtask.query.filter_by(student_id=student.id, subtask_id=subtask_id).first()
+                if entry:
+                    entry.status = value
+                    db.session.add(entry)
+        db.session.commit()
+        flash("Progress updated successfully.")
+        return redirect(url_for('main.update_subtasks'))
+
+    # Prepare subtasks grouped by milestone
+    progress_data = []
+    for milestone in milestones:
+        subtasks = Subtask.query.filter_by(milestone_id=milestone.id).order_by(Subtask.sequence_order).all()
+        subtask_entries = []
+        for subtask in subtasks:
+            student_subtask = StudentSubtask.query.filter_by(student_id=student.id, subtask_id=subtask.id).first()
+            subtask_entries.append({
+                'subtask': subtask,
+                'status': student_subtask.status if student_subtask else 'pending'
+            })
+        progress_data.append({
+            'milestone': milestone,
+            'subtasks': subtask_entries
+        })
+
+    return render_template('student/update_subtasks.html', progress_data=progress_data)
+
+@main.route('/supervisor/students')
+@login_required
+def supervisor_students():
+    faculty = Faculty.query.filter_by(email=current_user.email).first_or_404()
+    students = faculty.students
+    return render_template('supervisor/supervisor_students.html', students=students)
+
+
+
+@main.route('/supervisor/student/<int:student_id>/progress', methods=['GET', 'POST'])
+@login_required
+def supervisor_student_progress(student_id):
+    # 👇 Adjusted role check here
+    if current_user.role not in ['supervisor', 'faculty']:
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for('main.dashboard'))
+
+    student = Student.query.get_or_404(student_id)
+
+    if request.method == 'POST':
+        print("🔁 Received POST request")
+        print("📥 Form data:", dict(request.form))
+
+        updated = False
+        for key, value in request.form.items():
+            if key.startswith("subtask_"):
+                try:
+                    subtask_id = int(key.split("_")[1])
+                    new_status = value.strip().lower()
+
+                    entry = StudentSubtask.query.filter_by(student_id=student.id, subtask_id=subtask_id).first()
+                    if entry:
+                        if new_status != entry.status:
+                            entry.status = new_status
+                            updated = True
+                    else:
+                        new_entry = StudentSubtask(
+                            student_id=student.id,
+                            subtask_id=subtask_id,
+                            status=new_status
+                        )
+                        db.session.add(new_entry)
+                        updated = True
+                except (ValueError, IndexError):
+                    continue
+
+        if updated:
+            db.session.commit()
+            flash("✅ Subtask progress updated successfully.", "success")
+        else:
+            flash("⚠️ No changes were made to the subtask progress.", "info")
+
+        return redirect(request.url)
+
+
+    # Load milestones and progress
+    milestones = Milestone.query.order_by(Milestone.id).all()
+    progress_data = []
+    for milestone in milestones:
+        subtasks = Subtask.query.filter_by(milestone_id=milestone.id).order_by(Subtask.sequence_order).all()
+        entries = []
+        for subtask in subtasks:
+            student_subtask = StudentSubtask.query.filter_by(student_id=student.id, subtask_id=subtask.id).first()
+            entries.append({
+                'subtask': subtask,
+                'status': student_subtask.status if student_subtask else 'pending',
+                'comment': student_subtask.comment if student_subtask else None
+            })
+        progress_data.append({'milestone': milestone, 'subtasks': entries})
+
+    return render_template(
+        'supervisor/supervisor_progress.html',
+        student=student,
+        progress_data=progress_data
+    )
+
+
+@main.route('/supervisor/dashboard')
+@login_required
+def supervisor_dashboard():
+    faculty = Faculty.query.filter_by(email=current_user.email).first_or_404()
+    return render_template('supervisor/dashboard.html', user=faculty)
+
+@main.route('/student/milestone/<int:milestone_id>')
+@login_required
+def student_milestone_detail(milestone_id):
+    milestone = StudentMilestone.query.filter_by(id=milestone_id, student_id=current_user.student.id).first_or_404()
+    return render_template('students/student_milestone_detail.html', milestone=milestone)
+
+@main.route('/student/subtask/<int:subtask_id>/update', methods=['POST'])
+@login_required
+def update_subtask_status(subtask_id):
+    valid_statuses = ['pending', 'in_progress', 'completed']
+    status = request.form.get('status')
+
+    if status not in valid_statuses:
+        flash("Invalid status update.", "danger")
+        return redirect(request.referrer)
+
+    subtask = Subtask.query.get_or_404(subtask_id)
+    subtask.status = status
+    db.session.commit()
+
+    flash("Subtask updated to '{}'.".format(status.replace('_', ' ').title()), "success")
+    return redirect(request.referrer)
+
+
+
+@main.route('/student/milestone/<int:milestone_id>/upload', methods=['POST'])
+@login_required
+def upload_submission(milestone_id):
+    file = request.files['submission_file']
+    if file:
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        # Save submission info in DB if needed
+        flash("Submission uploaded successfully.", "success")
+    return redirect(request.referrer)
+
+
+@main.route('/student/dashboard')
+@login_required
+def student_dashboard():
+    student = Student.query.filter_by(user_id=current_user.id).first()
+    
+    if not student:
+        flash("Student profile not found.", "warning")
+        return render_template('dashboards/student.html', user=current_user, student=None, milestones=[])
+
+    # Query assigned milestones
+    milestones = (
+        StudentMilestone.query
+        .filter_by(student_id=student.id)
+        .options(
+            db.joinedload(StudentMilestone.milestone).joinedload(Milestone.subtasks))
+        .all()
+    )
+
+    print(f"[DEBUG] Current User: {current_user.full_name} ({current_user.id})")
+    print(f"[DEBUG] Student Profile ID: {student.id}")
+    print(f"[DEBUG] Retrieved {len(milestones)} milestones")
+
+    return render_template(
+        'dashboards/student.html',
+        user=current_user,
+        student=student,
+        milestones=milestones
+    )
+

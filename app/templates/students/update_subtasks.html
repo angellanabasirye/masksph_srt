@@ -1,0 +1,29 @@
+{% extends 'layouts/student_layout.html' %}
+{% block title %}Update My Subtasks{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h3>Update Your Research Progress</h3>
+  <form method="POST">
+    {% for item in progress_data %}
+      <div class="mt-4 p-3 bg-light border rounded">
+        <h5>{{ loop.index }}. {{ item.milestone.name }}</h5>
+        <ul class="list-group">
+          {% for entry in item.subtasks %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              {{ entry.subtask.name }}
+              <select name="subtask_{{ entry.subtask.id }}" class="form-select form-select-sm w-auto">
+                <option value="pending" {% if entry.status == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="in_progress" {% if entry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+              </select>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+    <div class="mt-4 text-end">
+      <button type="submit" class="btn btn-primary">Save Progress</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

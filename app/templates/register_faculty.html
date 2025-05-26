@@ -51,9 +51,9 @@
 
                 <div class="mb-3">
                     {{ form.roles.label(class="form-label") }}
-                    <select id="rolesDropdown" name="roles[]" multiple class="form-control">
+                    <select id="rolesDropdown" name="roles" multiple class="form-control">
                         {% for value, label in form.roles.choices %}
-                            <option value="{{ value }}" {% if form.roles.data and value in form.roles.data %}selected{% endif %}>{{ label }}</option>
+                            <option value="{{ value }}" {% if value in form.roles.data %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                     {% for error in form.roles.errors %}

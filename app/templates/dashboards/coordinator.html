@@ -1,7 +1,57 @@
-<h2>Welcome, {{ user.full_name }} (Program Coordinator)</h2>
-<p>Students Overview:</p>
-<ul>
-  {% for student in students %}
-    <li>{{ student.full_name }} – {{ student.supervisor.full_name if student.supervisor else 'No Supervisor' }}</li>
-  {% endfor %}
-</ul>
+{% extends 'layouts/coordinator_layout.html' %}
+
+{% block title %}Program Coordinator Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">Welcome, {{ user.full_name }} (Program Coordinator)</h2>
+        <a href="{{ url_for('main.logout') }}" class="btn btn-outline-danger btn-sm">Logout</a>
+    </div>
+
+    <p class="text-muted">Below is an overview of students and their supervisory assignments.</p>
+
+    <div class="card shadow-sm p-4">
+        <h4 class="mb-3">Students Overview</h4>
+
+        {% if students %}
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Student Name</th>
+                    <th>Program</th>
+                    <th>Year of Intake</th>
+                    <th>Supervisors</th>
+                    <th>Research Topic</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ student.full_name }}</td>
+                    <td>{{ student.program }}</td>
+                    <td>{{ student.year_of_intake }}</td>
+                    <td>
+                        {% if student.supervisors %}
+                            <ul class="mb-0 ps-3">
+                                {% for sup in student.supervisors %}
+                                    <li>{{ sup.full_name }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Not Assigned</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ student.research_topic or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+            <div class="alert alert-info">No student data available yet.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

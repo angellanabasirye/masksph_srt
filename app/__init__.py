@@ -29,13 +29,16 @@ def create_app():
     def load_user(user_id):
         return User.query.get(int(user_id))
 
-    from .routes import main
+    from app.routes import main
     app.register_blueprint(main)
 
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
     app.config['UPLOAD_FOLDER'] = os.path.join(basedir, 'uploads')  
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+    from app.seed import seed_bp
+    app.register_blueprint(seed_bp)
 
     return app
 

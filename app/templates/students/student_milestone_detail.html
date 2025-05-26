@@ -1,0 +1,67 @@
+{% extends 'layouts/student_layout.html' %}
+
+{% block title %}Milestone Detail{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="mb-4">
+    <a href="{{ url_for('main.my_progress') }}" class="btn btn-outline-secondary">
+      ← Back to My Progress
+    </a>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h4 class="card-title">{{ milestone.name }}</h4>
+      <p class="text-muted">{{ milestone.description or "No description provided." }}</p>
+      <p><strong>Status:</strong> 
+        <span class="badge bg-{% if milestone.completed %}success{% else %}secondary{% endif %}">
+          {% if milestone.completed %}Completed{% else %}Pending{% endif %}
+        </span>
+      </p>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header">
+      <h5>Subtasks</h5>
+    </div>
+    <div class="card-body">
+      {% if milestone.subtasks %}
+        <ul class="list-group">
+          {% for subtask in milestone.subtasks %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{{ subtask.name }}</strong><br>
+                <small class="text-muted">{{ subtask.description or "No details provided." }}</small>
+              </div>
+              <span class="badge bg-{{ 
+                'success' if subtask.status == 'completed' 
+                else 'warning' if subtask.status == 'in_progress' 
+                else 'secondary' 
+              }}">
+                {{ subtask.status | capitalize }}
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted">No subtasks defined yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header">
+      <h5>Supervisor Feedback</h5>
+    </div>
+    <div class="card-body">
+      {% if milestone.supervisor_comments %}
+        <p>{{ milestone.supervisor_comments }}</p>
+      {% else %}
+        <p class="text-muted">No comments from supervisor yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

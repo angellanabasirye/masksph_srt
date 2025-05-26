@@ -1,0 +1,36 @@
+{% extends 'layouts/supervisor_layout.html' %}
+
+{% block title %}Supervisor Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Welcome, {{ user.full_name }} (Supervisor)</h2>
+    <a href="{{ url_for('main.logout') }}" class="btn btn-outline-danger">Logout</a>
+  </div>
+
+  <div class="card p-3 shadow-sm mb-4">
+    <h5 class="card-title">Your Assigned Students</h5>
+    {% if user.students %}
+      <ul class="list-group mt-2">
+        {% for student in user.students %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <strong>{{ student.full_name }}</strong>
+              <br>
+              <small class="text-muted">{{ student.research_topic or "No topic set" }}</small>
+            
+            <!-- <a href="{{ url_for('main.supervisor_student_progress', student_id=student.id) }}" class="btn btn-sm btn-primary">View Progress</a> -->
+            <a href="{{ url_for('main.supervisor_student_progress', student_id=student.id) }}" class="btn btn-outline-info">View Progress </a>
+          {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No students have been assigned to you yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="mt-3">
+    <a href="{{ url_for('main.supervisor_students') }}" class="btn btn-secondary">View All Assigned Students</a>
+  </div>
+</div>
+{% endblock %}

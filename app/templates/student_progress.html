@@ -1,37 +1,27 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Student Progress</title>
-</head>
-<body>
-  <h2>{{ student.full_name }}'s Research Progress</h2>
+{% extends 'layouts/form_layout.html' %}
+{% block title %}My Research Progress{% endblock %}
 
-  <!-- Progress Bar -->
-  <div style="background:#eee; width:300px; margin-bottom:10px;">
-    <div style="background:green; color:white; width:{{ percent }}%; padding:4px 0; text-align:center;">
-      {{ percent }}%
+{% block content %}
+<h2 class="mb-4">Research Milestone Tracker</h2>
+
+{% for block in progress_data %}
+  <div class="card mb-4 shadow">
+    <div class="card-header bg-primary text-white">
+      <strong>{{ block.milestone.name }}</strong>
+    </div>
+    <div class="card-body">
+      <ul class="list-group">
+        {% for item in block.subtasks %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            {{ item.subtask.name }}
+            <span class="badge bg-{% if item.status == 'completed' %}success{% elif item.status == 'in_progress' %}warning{% else %}secondary{% endif %}">
+              {{ item.status.replace("_", " ").title() }}
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
     </div>
   </div>
+{% endfor %}
 
-  <!-- Completion Form -->
-  <form method="POST">
-    <ul>
-      {% for sm in student.student_milestones %}
-        <li>
-          <label>
-            <input type="checkbox" name="completed" value="{{ sm.milestone.id }}"
-                   {% if sm.completed %}checked{% endif %}>
-            {{ sm.milestone.name }} — {{ sm.milestone.description }}
-          </label>
-        </li>
-      {% else %}
-        <li>No milestones assigned yet.</li>
-      {% endfor %}
-    </ul>
-    <button type="submit">Update Progress</button>
-  </form>
-
-  <br>
-  <a href="{{ url_for('main.students') }}">← Back to Student List</a>
-</body>
-</html>
+{% endblock %}

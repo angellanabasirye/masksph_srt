@@ -1,0 +1,40 @@
+{% extends 'layouts/supervisor_layout.html' %}
+
+{% block title %}Review Student Progress{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h3>Milestone Progress for: {{ student.full_name }}</h3>
+  <form method="POST">
+    {% for item in progress_data %}
+    <div class="card my-4 shadow-sm">
+      <div class="card-header bg-light">
+        <strong>{{ loop.index }}. {{ item.milestone.name }}</strong>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for entry in item.subtasks %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <div><strong>{{ entry.subtask.name }}</strong></div>
+            {% if entry.comment %}
+            <small class="text-muted">Student Note: {{ entry.comment }}</small>
+            {% endif %}
+          </div>
+          <div>
+            <select name="subtask_{{ entry.subtask.id }}" class="form-select form-select-sm">
+              <option value="pending" {% if entry.status == 'pending' %}selected{% endif %}>Pending</option>
+              <option value="in_progress" {% if entry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+              <option value="completed" {% if entry.status == 'completed' %}selected{% endif %}>Completed</option>
+            </select>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+    <div class="text-end">
+      <button type="submit" class="btn btn-success">💾 Save Supervisor Review</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

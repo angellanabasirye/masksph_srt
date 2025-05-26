@@ -1,5 +1,7 @@
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.extensions import db
 from app import db
@@ -19,28 +21,21 @@ class Student(db.Model):
     __tablename__ = 'student'
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    phone = db.Column(db.String(20))
-    registration_number = db.Column(db.String(50), unique=True)
-    student_number = db.Column(db.String(50), unique=True)
-    program = db.Column(db.String(100))
-    gender = db.Column(db.String(10))
-    year_of_intake = db.Column(db.String(20))
+    email = db.Column(db.String(120), nullable=False)
+    gender = db.Column(db.String(20), nullable=False)
+    phone = db.Column(db.String(20))  # ← ADD THIS LINE
+    registration_number = db.Column(db.String(50), unique=True, nullable=False)
+    student_number = db.Column(db.String(50), unique=True, nullable=False)
+    program = db.Column(db.String(100), nullable=False)
+    year_of_intake = db.Column(db.String(10), nullable=False)
     research_topic = db.Column(db.String(255))
-    
-    student_milestones = db.relationship('StudentMilestone', back_populates='student')
-    supervisors = db.relationship(
-        'Faculty',
-        secondary='student_supervisors',
-        back_populates='students'
-)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
 
-class Milestone(db.Model):
-    __tablename__ = 'milestone'
-    __table_args__ = {'extend_existing': True}
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
+    supervisors = db.relationship('Faculty', secondary='student_supervisors', back_populates='students')
+    student_milestones = db.relationship('StudentMilestone', back_populates='student')
+
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    user = db.relationship('User', back_populates='student_profile')     
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -48,18 +43,12 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False)
     role = db.Column(db.String(50), nullable=False)
     password = db.Column(db.String(200), nullable=False)
+    first_login = db.Column(db.Boolean, default=True)  
+    student_profile = db.relationship('Student', back_populates='user', uselist=False)
 
-    def __init__(self, full_name=None, email=None, role=None, password=None):
-        self.full_name = full_name
-        self.email = email
-        self.role = role
-        if password:
-            self.set_password(password)
-
-    def __repr__(self):
-        return f"<User {self.full_name}>"
     def set_password(self, password):
         self.password = generate_password_hash(password)
+
     def check_password(self, password):
         return check_password_hash(self.password, password)
 
@@ -79,8 +68,6 @@ class Log(db.Model):
     message = db.Column(db.String(255))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-
-
 class Faculty(db.Model):
     __tablename__ = 'faculty'
     id = db.Column(db.Integer, primary_key=True)
@@ -97,6 +84,8 @@ class Faculty(db.Model):
         secondary='student_supervisors',
         back_populates='supervisors'
     )
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
+    user = db.relationship('User', backref='faculty_profile', uselist=False)
 
 class Role(db.Model):
     __tablename__ = 'role'
@@ -123,15 +112,18 @@ class Subtask(db.Model):
 class StudentMilestone(db.Model):
     __tablename__ = 'student_milestones'
     id = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
     milestone_id = db.Column(db.Integer, db.ForeignKey('milestones.id'), nullable=False)
     completed = db.Column(db.Boolean, default=False)
+
+    student = db.relationship('Student', back_populates='student_milestones') 
+    milestone = db.relationship('Milestone', backref='student_milestones')
 
 
 class StudentSubtask(db.Model):
     __tablename__ = 'student_subtasks'
     id = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
     subtask_id = db.Column(db.Integer, db.ForeignKey('subtasks.id'), nullable=False)
     status = db.Column(db.String(50), default='pending')  # pending | in_progress | completed
     comment = db.Column(db.Text)

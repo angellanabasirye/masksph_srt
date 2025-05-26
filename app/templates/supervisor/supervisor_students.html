@@ -1,0 +1,30 @@
+{% extends 'layouts/supervisor_layout.html' %}
+{% block title %}My Supervisees{% endblock %}
+{% block content %}
+<h3>My Assigned Students</h3>
+<table class="table table-striped mt-4">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Full Name</th>
+      <th>Program</th>
+      <th>Research Topic</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for student in students %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ student.full_name }}</td>
+      <td>{{ student.program }}</td>
+      <td>{{ student.research_topic or 'Not Set' }}</td>
+      <td>
+        <!-- <a href="{{ url_for('main.supervisor_students', student_id=student.id) }}" class="btn btn-sm btn-primary">View Progress </a> -->
+        <a href="{{ url_for('main.supervisor_student_progress', student_id=student.id) }}" class="btn btn-sm btn-primary">View Progress </a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

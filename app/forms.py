@@ -4,7 +4,7 @@ from wtforms import StringField, SelectField, SelectMultipleField, SubmitField, 
 from wtforms.validators import DataRequired, Email, Length, ValidationError
 from app.models import User, Student
 from wtforms.widgets import ListWidget, CheckboxInput
-from wtforms.validators import InputRequired
+from wtforms.validators import InputRequired, DataRequired, Email
 
 class RegisterUserForm(FlaskForm):
     full_name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=100)])
@@ -117,4 +117,4 @@ class AssignSupervisorsForm(FlaskForm):
         validators=[InputRequired(message="Select at least one supervisor.")]
     )
     submit = SubmitField('Assign')
-    
+

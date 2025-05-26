@@ -11,7 +11,9 @@
   </div>
 
   <form method="POST" class="card p-4 shadow-sm">
-    <p class="text-muted mb-4">Track and update research milestones for the assigned student. These milestones are constant and represent key stages in the academic journey.</p>
+    <p class="text-muted mb-4">
+      Track and update research milestones for the assigned student. These milestones represent key stages in the academic journey.
+    </p>
 
     <div class="row row-cols-1 row-cols-md-2 g-4">
       {% for milestone in milestones %}
@@ -23,10 +25,25 @@
             <label class="form-check-label fw-semibold" for="milestone{{ milestone.id }}">
               {{ loop.index }}. {{ milestone.name }}
             </label>
+
             {% if milestone.id in assigned_ids %}
-              <span class="badge bg-success ms-2">Completed</span>
+              <span class="badge bg-success ms-2">Assigned</span>
+
+              <!-- Display Subtasks -->
+              {% if milestone.id in milestone_subtasks %}
+              <ul class="mt-3 small ps-3">
+                {% for item in milestone_subtasks[milestone.id] %}
+                  <li class="d-flex justify-content-between align-items-center">
+                    {{ item.subtask.name }}
+                    <span class="badge bg-{% if item.status == 'completed' %}success{% elif item.status == 'in_progress' %}warning{% else %}secondary{% endif %}">
+                      {{ item.status.replace('_', ' ').title() }}
+                    </span>
+                  </li>
+                {% endfor %}
+              </ul>
+              {% endif %}
             {% else %}
-              <span class="badge bg-warning text-dark ms-2">Pending</span>
+              <span class="badge bg-warning text-dark ms-2">Not Assigned</span>
             {% endif %}
           </div>
         </div>
@@ -34,9 +51,8 @@
     </div>
 
     <div class="mt-4 text-end">
-      <button type="submit" class="btn btn-primary">Save Milestone Progress</button>
+      <button type="submit" class="btn btn-primary">Save Milestone Assignments</button>
     </div>
   </form>
-
 </div>
 {% endblock %}

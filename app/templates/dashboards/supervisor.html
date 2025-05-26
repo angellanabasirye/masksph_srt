@@ -1,7 +1,71 @@
-<h2>Welcome, {{ user.full_name }} (Supervisor)</h2>
-<p>Assigned Students:</p>
-<ul>
-  {% for student in user.students %}
-    <li>{{ student.full_name }} - {{ student.research_topic }}</li>
-  {% endfor %}
-</ul>
+{% extends 'layouts/supervisor_layout.html' %}
+
+{% block title %}Supervisor Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Welcome, {{ user.full_name }}</h2>
+    <span class="text-muted">Role: Supervisor</span>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="card-title">📋 View Assigned Students</h5>
+          <p class="card-text">See the list of students under your supervision and review their progress.</p>
+          <a href="{{ url_for('main.supervisor_students') }}" class="btn btn-primary btn-sm">Go to Students</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="card-title">📝 Review Milestones</h5>
+          <p class="card-text">Drill into each student's research journey and approve subtasks.</p>
+          <a href="{{ url_for('main.supervisor_students') }}" class="btn btn-success btn-sm">Track Progress</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="card-title">💬 Feedback & Comments</h5>
+          <p class="card-text">Provide timely guidance and comments on student submissions.</p>
+          <a href="{{ url_for('main.supervisor_students') }}" class="btn btn-warning btn-sm">View Feedback Panel</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assigned Students Section -->
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <h4 class="card-title">Your Assigned Students</h4>
+      {% if user.students %}
+        <ul class="list-group list-group-flush mt-3">
+          {% for student in user.students %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{{ student.full_name }}</strong><br>
+                <small class="text-muted">Topic: {{ student.research_topic or 'Not yet provided' }}</small>
+              </div>
+              <a href="{{ url_for('supervisor.view_student_detail', student_id=student.id) }}" class="btn btn-outline-secondary btn-sm">
+                View Progress →
+              </a>
+              <!-- <a href="{{ url_for('main.supervisor_progress', student_id=student.id) }}" class="btn btn-outline-secondary btn-sm"> -->
+
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted mt-3">You currently have no assigned students.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

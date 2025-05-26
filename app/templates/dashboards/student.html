@@ -1,10 +1,95 @@
-<h2>Welcome, {{ user.full_name }} (Student)</h2>
-<ul>
-  <li>Supervisor: {{ user.supervisor.full_name if user.supervisor else 'Not Assigned' }}</li>
-  <li>Milestones:</li>
-  <ul>
-    {% for milestone in user.student_milestones %}
-      <li>{{ milestone.name }} - {{ 'Completed' if milestone.completed else 'Pending' }}</li>
-    {% endfor %}
-  </ul>
-</ul>
+{% extends 'layouts/student_layout.html' %}
+
+{% block title %}Student Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h3 class="card-title">Welcome, {{ user.full_name }}</h3>
+      <p class="text-muted mb-3">Role: <strong>Student</strong></p>
+
+      {% if student %}
+        <p><strong>Registration No:</strong> {{ student.registration_number }}</p>
+      {% else %}
+        <p class="text-danger">Your student profile is not yet set up.</p>
+      {% endif %}
+
+      <hr>
+
+      <h5>Supervisor(s)</h5>
+      <p>
+        {% if student and student.supervisors %}
+          {% for s in student.supervisors %}
+            <span class="badge bg-primary">{{ s.full_name }}</span>
+          {% endfor %}
+        {% else %}
+          <span class="text-danger">Not Assigned</span>
+        {% endif %}
+      </p>
+
+      <h5 class="mt-4">Research Milestones</h5>
+        {% if milestones %}
+          {% for milestone in milestones %}
+          <div class="card mt-3 shadow-sm">
+            <div class="card-body">
+              <h5>{{ milestone.milestone.name }}</h5>
+              <p class="text-muted">{{ milestone.milestone.description or "No description available." }}</p>
+
+              <!-- Progress Bar -->
+              {% set total = milestone.milestone.subtasks | length %}
+              {% set completed = milestone.milestone.subtasks | selectattr("status", "equalto", "completed") | list | length %}
+              {% set percent = (completed / total * 100) if total > 0 else 0 %}
+
+              <div class="progress mb-2">
+                <div class="progress-bar" role="progressbar" style="width: {{ percent }}%;">
+                  {{ percent | round(0) }}%
+                </div>
+              </div>
+
+              <!-- Subtasks -->
+              <ul class="list-group mb-3">
+                    {% for subtask in milestone.milestone.subtasks %}
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                      <strong>{{ subtask.name }}</strong><br>
+                      <small class="text-muted">{{ subtask.description or "" }}</small>
+                    </div>
+                    <div>
+                      <span class="badge bg-{% if subtask.status == 'completed' %}success{% elif subtask.status == 'in_progress' %}warning{% else %}secondary{% endif %}">
+                        {{ subtask.status | capitalize }}
+                      </span>
+                      {% if subtask.status != 'completed' %}
+                        <form method="post" action="{{ url_for('main.update_subtask_status', subtask_id=subtask.id) }}" class="d-inline">
+                          <input type="hidden" name="status" value="in_progress">
+                          <button type="submit" class="btn btn-sm btn-outline-primary ms-2">Mark In Progress</button>
+                        </form>
+                        <form method="post" action="{{ url_for('main.update_subtask_status', subtask_id=subtask.id) }}" class="d-inline">
+                          <input type="hidden" name="status" value="completed">
+                          <button type="submit" class="btn btn-sm btn-success ms-1">Mark Completed</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </li>
+                {% endfor %}
+              </ul>
+
+              <!-- File Upload (if enabled) -->
+              <form action="{{ url_for('main.upload_submission', milestone_id=milestone.id) }}" method="post" enctype="multipart/form-data">
+                <div class="mb-2">
+                  <label class="form-label">Submit work (PDF/DOC):</label>
+                  <input type="file" name="submission_file" accept=".pdf,.doc,.docx" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Upload</button>
+              </form>
+
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted">No milestones assigned yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
