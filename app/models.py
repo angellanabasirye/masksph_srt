@@ -115,6 +115,7 @@ class StudentMilestone(db.Model):
     student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
     milestone_id = db.Column(db.Integer, db.ForeignKey('milestones.id'), nullable=False)
     completed = db.Column(db.Boolean, default=False)
+    in_progress = db.Column(db.Boolean, default=False)
 
     student = db.relationship('Student', back_populates='student_milestones') 
     milestone = db.relationship('Milestone', backref='student_milestones')

@@ -12,10 +12,13 @@ from werkzeug.utils import secure_filename
 from app.data_utils import allowed_file, process_student_excel
 from flask import Blueprint, render_template, send_from_directory, current_app
 from app.forms import FacultyForm
-from app.models import Faculty, Role, Milestone
+from app.models import Faculty, Role, Milestone, Student
 
-
-# from app.auth_utils import role_required
+from collections import defaultdict
+from datetime import datetime
+from sqlalchemy import func, extract
+from flask import render_template, flash, redirect, url_for
+from flask_login import login_required, current_user
 
 main = Blueprint('main', __name__)
 
@@ -272,45 +275,95 @@ def assign_supervisors(student_id):
 # ----------------------------------
 # View Students (with search + pagination)
 # ----------------------------------
-@main.route('/students')
-def students():
-    search = request.args.get('search', '').strip()
-    selected_program = request.args.get('program')
-    selected_supervisor = request.args.get('supervisor', type=int)
-    page = request.args.get('page', 1, type=int)
+# @main.route('/students')
+# def students():
+#     search = request.args.get('search', '').strip()
+#     selected_program = request.args.get('program')
+#     selected_supervisor = request.args.get('supervisor', type=int)
+#     page = request.args.get('page', 1, type=int)
 
-    supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).order_by(Faculty.full_name).all()
-    programs = db.session.query(Student.program).distinct().all()
+#     supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).order_by(Faculty.full_name).all()
+#     programs = db.session.query(Student.program).distinct().all()
+
+#     query = Student.query
+
+#     if search:
+#         query = query.filter(
+#             db.or_(
+#                 Student.full_name.ilike(f"%{search}%"),
+#                 Student.student_number.ilike(f"%{search}%"),
+#                 Student.registration_number.ilike(f"%{search}%")
+#             )
+#         )
+
+#     if selected_program:
+#         query = query.filter_by(program=selected_program)
+
+#     if selected_supervisor:
+#         query = query.filter_by(supervisor_id=selected_supervisor)
+
+#     students = query.order_by(Student.full_name).paginate(page=page, per_page=10)
+
+#     return render_template(
+#         'students.html',
+#         students=students,
+#         search=search,
+#         selected_program=selected_program,
+#         selected_supervisor=selected_supervisor,
+#         supervisors=supervisors,
+#         programs=programs
+#     )
+
+@main.route('/students')
+@login_required
+def students():
+    search = request.args.get('search')
+    selected_program = request.args.get('program')
+    selected_supervisor = request.args.get('supervisor')
+    selected_year = request.args.get('year_of_intake')
 
     query = Student.query
 
+    # Search filter
     if search:
         query = query.filter(
-            db.or_(
-                Student.full_name.ilike(f"%{search}%"),
-                Student.student_number.ilike(f"%{search}%"),
-                Student.registration_number.ilike(f"%{search}%")
-            )
+            Student.full_name.ilike(f'%{search}%') |
+            Student.student_number.ilike(f'%{search}%') |
+            Student.registration_number.ilike(f'%{search}%')
         )
 
+    # Program filter
     if selected_program:
         query = query.filter_by(program=selected_program)
 
+    # Supervisor filter
     if selected_supervisor:
-        query = query.filter_by(supervisor_id=selected_supervisor)
+        query = query.join(Student.supervisors).filter(Faculty.id == selected_supervisor)
 
-    students = query.order_by(Student.full_name).paginate(page=page, per_page=10)
+    # Year of intake filter
+    if selected_year:
+        query = query.filter_by(year_of_intake=selected_year)
+
+    # Only students with milestones assigned (optional logic)
+    query = query.filter(Student.student_milestones.any())
+
+    # Get distinct values for dropdown filters
+    programs = db.session.query(Student.program).filter(Student.program.isnot(None)).distinct().all()
+    supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).all()
+    years = db.session.query(Student.year_of_intake).filter(Student.year_of_intake.isnot(None)).distinct().order_by(Student.year_of_intake).all()
+    years = [y[0] for y in years]
 
     return render_template(
         'students.html',
-        students=students,
+        students=query.all(),
         search=search,
         selected_program=selected_program,
         selected_supervisor=selected_supervisor,
+        selected_year=selected_year,
+        programs=programs,
         supervisors=supervisors,
-        programs=programs
+        years=years
     )
-
 
 # ----------------------------------
 # Edit Student
@@ -488,7 +541,7 @@ def login():
 
         if user and user.check_password(password):
             login_user(user)
-            flash('Logged in successfully.', 'success')
+            # flash('Logged in successfully.', 'success')
             return redirect(url_for('main.dashboard'))
 
         else:
@@ -531,14 +584,72 @@ def change_password():
 @login_required
 def logout():
     logout_user()
-    flash('Logged out.', 'info')
+    # flash('Logged out.', 'info')
     return redirect(url_for('main.login'))
+
+
+# @main.route('/dashboard')
+# @login_required
+# def dashboard():
+#     # Shared statistics
+#     total_students = Student.query.count()
+#     total_supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).count()
+#     unassigned_students = Student.query.filter(~Student.supervisors.any()).count()
+
+#     completed_students = 0
+#     for student in Student.query.all():
+#         milestones = student.student_milestones
+#         if milestones and all(sm.completed for sm in milestones):
+#             completed_students += 1
+
+#     average_completion = round((completed_students / total_students) * 100, 2) if total_students else 0
+
+#     year_data = db.session.query(Student.year_of_intake, func.count()).group_by(Student.year_of_intake).all()
+#     year_of_intakes = [item[0] for item in year_data]
+#     intake_counts = [item[1] for item in year_data]
+
+#     stats = {
+#         'total_students': total_students,
+#         'total_supervisors': total_supervisors,
+#         'unassigned_students': unassigned_students,
+#         'completed_students': completed_students,
+#         'average_completion': average_completion,
+#         'year_of_intakes': year_of_intakes,
+#         'intake_counts': intake_counts,
+#     }
+
+#     # Dashboard Routing Logic
+#     role = current_user.role
+
+#     if role == 'admin':
+#         return render_template('dashboards/admin.html', user=current_user, stats=stats)
+
+#     elif role == 'student':
+#         return render_template('dashboards/student.html', user=current_user, student=current_user.student_profile, stats=stats)
+
+#     elif role == 'faculty':
+#         faculty = Faculty.query.filter_by(email=current_user.email).first()
+#         if faculty:
+#             field = (faculty.professional_field or '').lower()
+#             if field == 'coordinator':
+#                 return render_template('dashboards/coordinator.html', user=current_user, stats=stats)
+#             elif field == 'ip':
+#                 return render_template('dashboards/ip.html', user=current_user, stats=stats)
+#             else:
+#                 return render_template('dashboards/supervisor.html', user=current_user, stats=stats)
+#         else:
+#             flash("Faculty profile not found. Contact administrator.", "danger")
+#             return redirect(url_for('main.logout'))
+
+#     flash("Unknown role. Contact administrator.", "danger")
+#     return redirect(url_for('main.logout'))
 
 
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    # Shared statistics
+    from collections import defaultdict
+
     total_students = Student.query.count()
     total_supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).count()
     unassigned_students = Student.query.filter(~Student.supervisors.any()).count()
@@ -546,14 +657,80 @@ def dashboard():
     completed_students = 0
     for student in Student.query.all():
         milestones = student.student_milestones
-        if milestones and all(sm.completed for sm in milestones):
+        if milestones and all(getattr(sm, 'completed', False) for sm in milestones):
             completed_students += 1
 
     average_completion = round((completed_students / total_students) * 100, 2) if total_students else 0
 
+    # Year of intake stats
     year_data = db.session.query(Student.year_of_intake, func.count()).group_by(Student.year_of_intake).all()
-    year_of_intakes = [item[0] for item in year_data]
-    intake_counts = [item[1] for item in year_data]
+    year_of_intakes = [item[0] for item in year_data if item[0]]
+    intake_counts = [item[1] for item in year_data if item[0]]
+
+    # Supervisor load
+    supervisor_data = (
+        db.session.query(Faculty.full_name, func.count(Student.id))
+        .join(Faculty.students)
+        .group_by(Faculty.id)
+        .all()
+    )
+    supervisor_names = [s[0] for s in supervisor_data]
+    supervisor_loads = [s[1] for s in supervisor_data]
+
+    # Milestone progress by program
+    program_groups = defaultdict(list)
+    for student in Student.query.all():
+        if student.program:
+            program_groups[student.program].append(student)
+
+    program_milestones = []
+    for program, students in program_groups.items():
+        milestone_summary = defaultdict(lambda: {'completed': 0, 'in_progress': 0, 'not_started': 0})
+        for student in students:
+            for sm in student.student_milestones:
+                status = 'not_started'
+                if getattr(sm, 'completed', False):
+                    status = 'completed'
+                elif getattr(sm, 'in_progress', False):
+                    status = 'in_progress'
+                milestone_summary[sm.milestone.name][status] += 1
+        program_milestones.append({
+            'name': program,
+            'milestones': [
+                {
+                    'name': milestone,
+                    'completed': data['completed'],
+                    'in_progress': data['in_progress'],
+                    'not_started': data['not_started']
+                }
+                for milestone, data in milestone_summary.items()
+            ]
+        })
+
+    # Intake-level completion stats
+    intake_stats = (
+        db.session.query(
+            Student.year_of_intake,
+            func.count(Student.id).label('total'),
+            func.count().filter(StudentMilestone.completed == True).label('completed')
+        )
+        .outerjoin(Student.student_milestones)
+        .group_by(Student.year_of_intake)
+        .all()
+    )
+
+    intake_years, total_counts, completed_counts, in_progress_counts, completion_rates = [], [], [], [], []
+    for year, total, completed in intake_stats:
+        year = year or "Unknown"
+        completed = completed or 0
+        in_progress = total - completed
+        completion_rate = round((completed / total) * 100, 2) if total else 0
+
+        intake_years.append(year)
+        total_counts.append(total)
+        completed_counts.append(completed)
+        in_progress_counts.append(in_progress)
+        completion_rates.append(completion_rate)
 
     stats = {
         'total_students': total_students,
@@ -563,17 +740,22 @@ def dashboard():
         'average_completion': average_completion,
         'year_of_intakes': year_of_intakes,
         'intake_counts': intake_counts,
+        'supervisor_names': supervisor_names,
+        'supervisor_loads': supervisor_loads,
+        'program_milestones': program_milestones,
+        'intake_years': intake_years,
+        'total_counts': total_counts,
+        'completed_counts': completed_counts,
+        'in_progress_counts': in_progress_counts,
+        'completion_rates': completion_rates
     }
 
-    # Dashboard Routing Logic
+    # Role-based dashboard rendering
     role = current_user.role
-
     if role == 'admin':
         return render_template('dashboards/admin.html', user=current_user, stats=stats)
-
     elif role == 'student':
         return render_template('dashboards/student.html', user=current_user, student=current_user.student_profile, stats=stats)
-
     elif role == 'faculty':
         faculty = Faculty.query.filter_by(email=current_user.email).first()
         if faculty:
@@ -590,7 +772,6 @@ def dashboard():
 
     flash("Unknown role. Contact administrator.", "danger")
     return redirect(url_for('main.logout'))
-
 
 
 from app.auth_utils import admin_required

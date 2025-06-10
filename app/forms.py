@@ -29,19 +29,32 @@ class RegisterUserForm(FlaskForm):
 
 class RegisterStudentForm(FlaskForm):
     full_name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=100)])
-    gender = SelectField('Gender', choices=[('Male', 'Male'), ('Female', 'Female')], validators=[DataRequired()])
+    gender = SelectField('Gender', choices=[('', 'select your gender'), ('Male', 'Male'), ('Female', 'Female')], validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
     phone = StringField('Phone Number', validators=[Length(min=10, max=15)])
     registration_number = StringField('Registration Number', validators=[DataRequired()])
     student_number = StringField('Student Number', validators=[DataRequired()])
     program = SelectField('Program', choices=[
+        ('', 'Select your program'),
         ('MHI', 'Master of Health Informatics'),
         ('MPH', 'Master of Public Health'),
         ('MScEpi', 'MSc Epidemiology'),
         ('PhD', 'PhD in Health Sciences'),
         # Add more programs as needed
     ], validators=[DataRequired()])
-    year_of_intake = StringField('Year of Intake', validators=[DataRequired()])
+    # year_of_intake = StringField('Year of Intake', validators=[DataRequired()])
+    year_of_intake = SelectField(
+        'Year of Intake',
+        choices=[
+            ('', 'Select your year of entry'),
+            ('2020/2021', '2020/2021'),
+            ('2021/2022', '2021/2022'),
+            ('2022/2023', '2022/2023'),
+            ('2023/2024', '2023/2024'),
+            ('2025/2026', '2025/2026'),
+        ],
+        validators=[DataRequired()]
+    )
     research_topic = StringField('Research Topic', validators=[DataRequired()])
     submit = SubmitField('Register Student')
 

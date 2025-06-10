@@ -21,9 +21,16 @@
     #main-content {
       flex: 1;
       padding: 20px;
+      overflow-x: auto;
     }
     .sidebar-toggle {
       cursor: pointer;
+    }
+    .card h5 {
+      font-size: 1rem;
+    }
+    canvas {
+      max-height: 300px;
     }
   </style>
 </head>
@@ -35,29 +42,27 @@
     </div>
     <h5 class="text-white">Admin</h5>
     <nav class="nav flex-column">
-      <!-- <a class="nav-link text-white" href="{{ url_for('admin.manage_users') }}">👥 Manage Users</a> -->
       <a class="nav-link text-white" href="{{ url_for('admin.manage_users') }}">👥 <span>Manage Users</span></a>
       <a class="nav-link text-white" href="{{ url_for('main.register') }}">➕ <span>Register Student</span></a>
-      <a class="nav-link text-white" href="{{ url_for('main.register_faculty') }}">➕ <span>Register faculty</span></a>
+      <a class="nav-link text-white" href="{{ url_for('main.register_faculty') }}">➕ <span>Register Faculty</span></a>
       <a class="nav-link text-white" href="{{ url_for('main.students') }}">📋 <span>View Students</span></a>
-      <!-- <a class="nav-link text-white" href="{{ url_for('main.milestones') }}">📌 <span>View Milestones</span></a> -->
     </nav>
   </div>
 
   <!-- Main Content -->
   <div id="main-content">
-     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-        <div class="container">
-            <a class="navbar-brand" href="#">Student Research Tracker Dashboard</a>
-            <div class="d-flex ms-auto">
-                {% if current_user.is_authenticated %}
-                    <span class="navbar-text text-white me-3">
-                        Logged in as {{ current_user.full_name }}
-                    </span>
-                    <a href="{{ url_for('main.logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
-                {% endif %}
-            </div>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+      <div class="container">
+        <a class="navbar-brand" href="#">Student Research Tracker Dashboard</a>
+        <div class="d-flex ms-auto">
+          {% if current_user.is_authenticated %}
+          <span class="navbar-text text-white me-3">
+            Logged in as {{ current_user.full_name }}
+          </span>
+          <a href="{{ url_for('main.logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+          {% endif %}
         </div>
+      </div>
     </nav>
 
     <!-- Summary cards -->
@@ -79,8 +84,54 @@
         <canvas id="intakeChart"></canvas>
       </div>
     </div>
+
+    <!-- Milestone Progress by Program -->
+    <h5 class="mt-5">📊 Milestone Progress by Program</h5>
+    {% for program in stats.program_milestones %}
+    <div class="mt-4">
+      <h6 class="text-primary">{{ program.name }}</h6>
+      <table class="table table-bordered table-sm">
+        <thead class="table-secondary">
+          <tr>
+            <th>Milestone</th>
+            <th>Completed</th>
+            <th>In Progress</th>
+            <th>Not Started</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for milestone in program.milestones %}
+          <tr>
+            <td>{{ milestone.name }}</td>
+            <td>{{ milestone.completed }}</td>
+            <td>{{ milestone.in_progress }}</td>
+            <td>{{ milestone.not_started }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+
+    <!-- Supervisor Load Chart -->
+    <div class="mt-5">
+      <h5>🧑‍🏫 Supervisor Workload</h5>
+      <canvas id="supervisorChart"></canvas>
+    </div>
+
+    <!-- Monthly Registration Trend -->
+    <div class="mt-5">
+      <h5>🎓 Year of Intake Analysis</h5>
+      <canvas id="intakeBarChart"></canvas>
+    </div>
+
+    <div class="mt-4">
+      <h5>📊 Completion Rate per Intake Year</h5>
+      <canvas id="completionRateChart"></canvas>
+    </div>
   </div>
 
+  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     const completedStudents = {{ stats.completed_students | tojson }};
@@ -88,8 +139,12 @@
     const yearOfIntakes = {{ stats.year_of_intakes | tojson }};
     const intakeCounts = {{ stats.intake_counts | tojson }};
 
-    const completionCtx = document.getElementById('completionChart');
-    new Chart(completionCtx, {
+    const supervisorLabels = {{ stats.get('supervisor_names', []) | tojson }};
+    const supervisorLoads = {{ stats.get('supervisor_loads', []) | tojson }};
+    const registrationMonths = {{ stats.get('registration_months', []) | tojson }};
+    const registrationCounts = {{ stats.get('registration_counts', []) | tojson }};
+
+    new Chart(document.getElementById('completionChart'), {
       type: 'pie',
       data: {
         labels: ['Completed', 'In Progress'],
@@ -100,8 +155,7 @@
       }
     });
 
-    const intakeCtx = document.getElementById('intakeChart');
-    new Chart(intakeCtx, {
+    new Chart(document.getElementById('intakeChart'), {
       type: 'bar',
       data: {
         labels: yearOfIntakes,
@@ -113,10 +167,92 @@
       }
     });
 
+    new Chart(document.getElementById('supervisorChart'), {
+      type: 'doughnut',
+      data: {
+        labels: supervisorLabels,
+        datasets: [{
+          data: supervisorLoads,
+          backgroundColor: ['#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6f42c1']
+        }]
+      }
+    });
+
+    new Chart(document.getElementById('monthlyRegistrationChart'), {
+      type: 'line',
+      data: {
+        labels: regMonths,
+        datasets: [{
+          label: 'Registrations',
+          data: regCounts,
+          fill: false,
+          borderColor: '#6610f2',
+          tension: 0.1
+        }]
+      }
+    });
+
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
       sidebar.classList.toggle('collapsed');
     }
   </script>
+
+  <script>
+  const intakeYears = {{ stats.get('intake_years', []) | tojson }};
+  const totalCounts = {{ stats.get('total_counts', []) | tojson }};
+  const completedCounts = {{ stats.get('completed_counts', []) | tojson }};
+  const inProgressCounts = {{ stats.get('in_progress_counts', []) | tojson }};
+  const completionRates = {{ stats.get('completion_rates', []) | tojson }};
+
+  // Stacked Bar Chart: Total vs Completed vs In Progress
+  new Chart(document.getElementById('intakeBarChart'), {
+    type: 'bar',
+    data: {
+      labels: intakeYears,
+      datasets: [
+        {
+          label: 'Completed',
+          data: completedCounts,
+          backgroundColor: '#28a745'
+        },
+        {
+          label: 'In Progress',
+          data: inProgressCounts,
+          backgroundColor: '#ffc107'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true }
+      }
+    }
+  });
+
+  // Line Chart: Completion Rate
+  new Chart(document.getElementById('completionRateChart'), {
+    type: 'line',
+    data: {
+      labels: intakeYears,
+      datasets: [{
+        label: 'Completion Rate (%)',
+        data: completionRates,
+        fill: false,
+        borderColor: '#007bff',
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true, max: 100 }
+      }
+    }
+  });
+</script>
+
 </body>
 </html>

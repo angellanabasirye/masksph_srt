@@ -57,7 +57,7 @@ def edit_user(user_id):
         db.session.add(log)
         db.session.commit()
 
-        flash('User updated successfully.', 'success')
+        # flash('User updated successfully.', 'success')
         return redirect(url_for('admin.manage_users'))
 
     return render_template('admin/edit_user.html', user=current_user, user_to_edit=user)
@@ -73,7 +73,7 @@ def delete_user(user_id):
 
     db.session.delete(user)
     db.session.commit()
-    flash('User deleted successfully.', 'success')
+    # flash('User deleted successfully.', 'success')
     return redirect(url_for('admin.manage_users'))
 
 
@@ -81,7 +81,7 @@ def delete_user(user_id):
 @login_required
 def add_user():
     if current_user.role != 'admin':
-        flash('Unauthorized access.', 'danger')
+        # flash('Unauthorized access.', 'danger')
         return redirect(url_for('main.index'))
 
     if request.method == 'POST':
@@ -92,7 +92,7 @@ def add_user():
 
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
-            flash('A user with that email already exists.', 'warning')
+            # flash('A user with that email already exists.', 'warning')
             return redirect(url_for('admin.add_user'))
 
         user = User(full_name=full_name, email=email, role=role)
@@ -103,7 +103,7 @@ def add_user():
         db.session.add(user)
         db.session.commit()
 
-        flash('New user added successfully!', 'success')
+        # flash('New user added successfully!', 'success')
         return redirect(url_for('admin.manage_users'))
 
     return render_template('admin/add_user.html', user=current_user)
