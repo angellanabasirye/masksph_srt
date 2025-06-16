@@ -588,63 +588,6 @@ def logout():
     return redirect(url_for('main.login'))
 
 
-# @main.route('/dashboard')
-# @login_required
-# def dashboard():
-#     # Shared statistics
-#     total_students = Student.query.count()
-#     total_supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).count()
-#     unassigned_students = Student.query.filter(~Student.supervisors.any()).count()
-
-#     completed_students = 0
-#     for student in Student.query.all():
-#         milestones = student.student_milestones
-#         if milestones and all(sm.completed for sm in milestones):
-#             completed_students += 1
-
-#     average_completion = round((completed_students / total_students) * 100, 2) if total_students else 0
-
-#     year_data = db.session.query(Student.year_of_intake, func.count()).group_by(Student.year_of_intake).all()
-#     year_of_intakes = [item[0] for item in year_data]
-#     intake_counts = [item[1] for item in year_data]
-
-#     stats = {
-#         'total_students': total_students,
-#         'total_supervisors': total_supervisors,
-#         'unassigned_students': unassigned_students,
-#         'completed_students': completed_students,
-#         'average_completion': average_completion,
-#         'year_of_intakes': year_of_intakes,
-#         'intake_counts': intake_counts,
-#     }
-
-#     # Dashboard Routing Logic
-#     role = current_user.role
-
-#     if role == 'admin':
-#         return render_template('dashboards/admin.html', user=current_user, stats=stats)
-
-#     elif role == 'student':
-#         return render_template('dashboards/student.html', user=current_user, student=current_user.student_profile, stats=stats)
-
-#     elif role == 'faculty':
-#         faculty = Faculty.query.filter_by(email=current_user.email).first()
-#         if faculty:
-#             field = (faculty.professional_field or '').lower()
-#             if field == 'coordinator':
-#                 return render_template('dashboards/coordinator.html', user=current_user, stats=stats)
-#             elif field == 'ip':
-#                 return render_template('dashboards/ip.html', user=current_user, stats=stats)
-#             else:
-#                 return render_template('dashboards/supervisor.html', user=current_user, stats=stats)
-#         else:
-#             flash("Faculty profile not found. Contact administrator.", "danger")
-#             return redirect(url_for('main.logout'))
-
-#     flash("Unknown role. Contact administrator.", "danger")
-#     return redirect(url_for('main.logout'))
-
-
 @main.route('/dashboard')
 @login_required
 def dashboard():
@@ -1016,7 +959,41 @@ def supervisor_student_progress(student_id):
 @login_required
 def supervisor_dashboard():
     faculty = Faculty.query.filter_by(email=current_user.email).first_or_404()
-    return render_template('supervisor/dashboard.html', user=faculty)
+
+    progress_data = []
+    intake_counts = {}
+
+    # Count total subtasks (same for all students)
+    total_subtasks = Subtask.query.count()
+
+    for student in faculty.students:
+        subtasks = StudentSubtask.query.filter_by(student_id=student.id).all()
+
+        completed = sum(1 for s in subtasks if s.status == 'completed')
+        in_progress = sum(1 for s in subtasks if s.status == 'in_progress')
+        not_started = total_subtasks - (completed + in_progress)
+        percent = round((completed / total_subtasks) * 100, 1) if total_subtasks > 0 else 0
+
+        progress_data.append({
+            "name": student.full_name,
+            "completed": completed,
+            "in_progress": in_progress,
+            "not_started": not_started,
+            "percent": percent,
+            "topic": student.research_topic or "N/A",
+            "intake": student.year_of_intake or "Unknown"
+        })
+
+        if student.year_of_intake:
+            intake_counts[student.year_of_intake] = intake_counts.get(student.year_of_intake, 0) + 1
+
+    return render_template(
+        'supervisor/dashboard.html',
+        user=faculty,
+        progress_data=progress_data,
+        intake_counts=intake_counts
+    )
+
 
 @main.route('/student/milestone/<int:milestone_id>')
 @login_required
@@ -1085,3 +1062,67 @@ def student_dashboard():
         milestones=milestones
     )
 
+@main.route('/supervisor/milestone-review')
+@login_required
+def supervisor_milestone_review():
+    faculty = Faculty.query.filter_by(email=current_user.email).first_or_404()
+
+    student_data = []
+    for student in faculty.students:
+        milestones_data = []
+        total_subtasks = 0
+        completed_subtasks = 0
+
+        all_milestones = Milestone.query.order_by(Milestone.id).all()
+
+        for milestone in all_milestones:
+            subtasks = Subtask.query.filter_by(milestone_id=milestone.id).order_by(Subtask.sequence_order).all()
+            subtask_info = []
+
+            milestone_total = 0
+            milestone_completed = 0
+
+            for subtask in subtasks:
+                progress = StudentSubtask.query.filter_by(student_id=student.id, subtask_id=subtask.id).first()
+                status = progress.status if progress else 'pending'
+
+                milestone_total += 1
+                total_subtasks += 1
+
+                if status == 'completed':
+                    milestone_completed += 1
+                    completed_subtasks += 1
+
+                subtask_info.append({
+                    'name': subtask.name,
+                    'status': status.capitalize()
+                })
+
+            if milestone_total > 0:
+                percent = round((milestone_completed / milestone_total) * 100, 1)
+            else:
+                percent = 0.0
+
+            if milestone_completed == milestone_total and milestone_total > 0:
+                milestone_status = "Completed"
+            elif milestone_completed > 0:
+                milestone_status = "In Progress"
+            else:
+                milestone_status = "Not Started"
+
+            milestones_data.append({
+                'name': milestone.name,
+                'subtasks': subtask_info,
+                'status': milestone_status,
+                'percent': percent
+            })
+
+        overall_percent = round((completed_subtasks / total_subtasks) * 100, 1) if total_subtasks > 0 else 0
+
+        student_data.append({
+            'student': student,
+            'milestones': milestones_data,
+            'completion': overall_percent
+        })
+
+    return render_template('supervisor/milestone_review.html', students=student_data)

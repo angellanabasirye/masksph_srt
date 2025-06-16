@@ -3,34 +3,191 @@
 {% block title %}Supervisor Dashboard{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Welcome, {{ user.full_name }} (Supervisor)</h2>
-    <a href="{{ url_for('main.logout') }}" class="btn btn-outline-danger">Logout</a>
+    <h2>Welcome, {{ user.full_name }}</h2>
+    <span class="text-muted">Role: Supervisor</span>
   </div>
 
-  <div class="card p-3 shadow-sm mb-4">
-    <h5 class="card-title">Your Assigned Students</h5>
-    {% if user.students %}
-      <ul class="list-group mt-2">
-        {% for student in user.students %}
-          <li class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-              <strong>{{ student.full_name }}</strong>
-              <br>
-              <small class="text-muted">{{ student.research_topic or "No topic set" }}</small>
-            
-            <!-- <a href="{{ url_for('main.supervisor_student_progress', student_id=student.id) }}" class="btn btn-sm btn-primary">View Progress</a> -->
-            <a href="{{ url_for('main.supervisor_student_progress', student_id=student.id) }}" class="btn btn-outline-info">View Progress </a>
+  <!-- Action Cards -->
+  <div class="row mb-4 g-3">
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <h6 class="card-title">📋 View Assigned Students</h6>
+          <p class="card-text small">See the list of students under your supervision and review their progress.</p>
+          <a href="{{ url_for('main.supervisor_students') }}" class="btn btn-primary btn-sm">Go to Students</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <h6 class="card-title">📝 Review Milestones</h6>
+          <p class="card-text small">Drill into each student's research journey and approve subtasks.</p>
+          <a href="{{ url_for('main.supervisor_milestone_review') }}" class="btn btn-success btn-sm">Track Progress</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <h6 class="card-title">💬 Feedback & Comments</h6>
+          <p class="card-text small">Provide timely guidance and comments on student submissions.</p>
+          <a href="{{ url_for('main.supervisor_students') }}" class="btn btn-warning btn-sm">View Feedback Panel</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assigned Students Section -->
+  <div class="card shadow-sm border-0 mb-5">
+    <div class="card-body">
+      <h5 class="card-title">Your Assigned Students</h5>
+      {% if user.students %}
+        <ul class="list-group list-group-flush mt-3">
+          {% for student in user.students %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{{ student.full_name }}</strong><br>
+                <small class="text-muted">Topic: {{ student.research_topic or 'Not yet provided' }}</small>
+              </div>
+              <a href="{{ url_for('main.supervisor_student_progress', student_id=student.id) }}" class="btn btn-outline-secondary btn-sm">
+                View Progress →
+              </a>
+            </li>
           {% endfor %}
-      </ul>
-    {% else %}
-      <p class="text-muted">No students have been assigned to you yet.</p>
-    {% endif %}
+        </ul>
+      {% else %}
+        <p class="text-muted mt-3">You currently have no assigned students.</p>
+      {% endif %}
+    </div>
   </div>
 
-  <div class="mt-3">
-    <a href="{{ url_for('main.supervisor_students') }}" class="btn btn-secondary">View All Assigned Students</a>
+  <!-- Charts and Table Section -->
+  <h5 class="mb-3">📊 Student Progress Analysis</h5>
+
+  <div class="row g-3">
+    <!-- Milestone Completion Chart -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-3">
+          <h6 class="card-title mb-2">📊 Milestone Status Per Student</h6>
+          <canvas id="progressChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Intake Year Distribution Chart -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-3">
+          <h6 class="card-title mb-2">🎓 Intake Year Distribution</h6>
+          <canvas id="intakeChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Student Progress Table -->
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-3">
+          <h6 class="card-title mb-2">🧾 Student Progress Table</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0">
+              <thead class="table-light small">
+                <tr>
+                  <th>Student</th>
+                  <th>Topic</th>
+                  <th>Completion %</th>
+                  <th>✅</th>
+                  <th>🟡</th>
+                  <th>⏳</th>
+                </tr>
+              </thead>
+              <tbody class="small">
+                {% for row in progress_data %}
+                <tr>
+                  <td>{{ row.name }}</td>
+                  <td>{{ row.topic }}</td>
+                  <td>{{ row.percent }}%</td>
+                  <td>{{ row.completed }}</td>
+                  <td>{{ row.in_progress }}</td>
+                  <td>{{ row.not_started }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const progressData = {{ progress_data | tojson }};
+  const intakeCounts = {{ intake_counts | tojson }};
+
+  // Milestone Status Chart
+  new Chart(document.getElementById('progressChart'), {
+    type: 'bar',
+    data: {
+      labels: progressData.map(s => s.name),
+      datasets: [
+        {
+          label: 'Completed',
+          data: progressData.map(s => s.completed),
+          backgroundColor: '#28a745'
+        },
+        {
+          label: 'In Progress',
+          data: progressData.map(s => s.in_progress),
+          backgroundColor: '#ffc107'
+        },
+        {
+          label: 'Not Started',
+          data: progressData.map(s => s.not_started),
+          backgroundColor: '#dc3545'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: false },
+        legend: {
+          labels: { font: { size: 10 } }
+        }
+      },
+      scales: {
+        x: { stacked: true, ticks: { font: { size: 10 } } },
+        y: { stacked: true, beginAtZero: true, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+
+  // Intake Distribution Doughnut
+  new Chart(document.getElementById('intakeChart'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(intakeCounts),
+      datasets: [{
+        data: Object.values(intakeCounts),
+        backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1']
+      }]
+    },
+    options: {
+      plugins: {
+        legend: {
+          labels: { font: { size: 10 } }
+        }
+      }
+    }
+  });
+</script>
 {% endblock %}

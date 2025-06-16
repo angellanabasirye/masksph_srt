@@ -134,15 +134,15 @@
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    const completedStudents = {{ stats.completed_students | tojson }};
-    const totalStudents = {{ stats.total_students | tojson }};
-    const yearOfIntakes = {{ stats.year_of_intakes | tojson }};
-    const intakeCounts = {{ stats.intake_counts | tojson }};
+    const completedStudents = {{ stats.get('completed_students') | default(0) | tojson }};
+    const totalStudents = {{ stats.get('total_students') | default(0) | tojson }};
+    const yearOfIntakes = {{ stats.get('year_of_intakes') | default([]) | tojson }};
+    const intakeCounts = {{ stats.get('intake_counts') | default([]) | tojson }};
 
-    const supervisorLabels = {{ stats.get('supervisor_names', []) | tojson }};
-    const supervisorLoads = {{ stats.get('supervisor_loads', []) | tojson }};
-    const registrationMonths = {{ stats.get('registration_months', []) | tojson }};
-    const registrationCounts = {{ stats.get('registration_counts', []) | tojson }};
+    const supervisorLabels = {{ stats.get('supervisor_names') | default([]) | tojson }};
+    const supervisorLoads = {{ stats.get('supervisor_loads') | default([]) | tojson }};
+    const registrationMonths = {{ stats.get('registration_months') | default([]) | tojson }};
+    const registrationCounts = {{ stats.get('registration_counts') | default([]) | tojson }};
 
     new Chart(document.getElementById('completionChart'), {
       type: 'pie',
@@ -199,11 +199,11 @@
   </script>
 
   <script>
-  const intakeYears = {{ stats.get('intake_years', []) | tojson }};
-  const totalCounts = {{ stats.get('total_counts', []) | tojson }};
-  const completedCounts = {{ stats.get('completed_counts', []) | tojson }};
-  const inProgressCounts = {{ stats.get('in_progress_counts', []) | tojson }};
-  const completionRates = {{ stats.get('completion_rates', []) | tojson }};
+  const intakeYears = {{ stats.get('intake_years') | default([]) | tojson }};
+  const totalCounts = {{ stats.get('total_counts') | default([]) | tojson }};
+  const completedCounts = {{ stats.get('completed_counts') | default([]) | tojson }};
+  const inProgressCounts = {{ stats.get('in_progress_counts') | default([]) | tojson }};
+  const completionRates = {{ stats.get('completion_rates') | default([]) | tojson }};
 
   // Stacked Bar Chart: Total vs Completed vs In Progress
   new Chart(document.getElementById('intakeBarChart'), {
@@ -253,6 +253,15 @@
     }
   });
 </script>
+
+{% if stats %}
+<script>
+  const completedStudents = {{ stats.get('completed_students') | default(0) | tojson }};
+  // ... rest of your chart data
+</script>
+{% else %}
+<p class="text-danger">Error: Stats data not available.</p>
+{% endif %}
 
 </body>
 </html>
