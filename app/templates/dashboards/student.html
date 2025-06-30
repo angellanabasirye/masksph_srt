@@ -29,6 +29,15 @@
       </p>
 
       <h5 class="mt-4">Research Milestones</h5>
+      <a href="{{ url_for('main.supervisor_feedback_panel') }}" class="btn btn-outline-dark position-relative mb-3">
+        💬 Feedback
+        {% if unread_count > 0 %}
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+            {{ unread_count }}
+          </span>
+        {% endif %}
+      </a>
+
         {% if milestones %}
           {% for milestone in milestones %}
           <div class="card mt-3 shadow-sm">
@@ -37,7 +46,8 @@
               <p class="text-muted">{{ milestone.milestone.description or "No description available." }}</p>
 
               <!-- Progress Bar -->
-              {% set total = milestone.milestone.subtasks | length %}
+              {% set total = milestone.subtasks | length %}
+              {% set completed = milestone.subtasks | selectattr("status", "equalto", "completed") | list | length %}
               {% set completed = milestone.milestone.subtasks | selectattr("status", "equalto", "completed") | list | length %}
               {% set percent = (completed / total * 100) if total > 0 else 0 %}
 
@@ -47,35 +57,67 @@
                 </div>
               </div>
 
-              <!-- Subtasks -->
-              <ul class="list-group mb-3">
-                    {% for subtask in milestone.milestone.subtasks %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                      <strong>{{ subtask.name }}</strong><br>
-                      <small class="text-muted">{{ subtask.description or "" }}</small>
-                    </div>
-                    <div>
-                      <span class="badge bg-{% if subtask.status == 'completed' %}success{% elif subtask.status == 'in_progress' %}warning{% else %}secondary{% endif %}">
-                        {{ subtask.status | capitalize }}
-                      </span>
-                      {% if subtask.status != 'completed' %}
-                        <form method="post" action="{{ url_for('main.update_subtask_status', subtask_id=subtask.id) }}" class="d-inline">
-                          <input type="hidden" name="status" value="in_progress">
-                          <button type="submit" class="btn btn-sm btn-outline-primary ms-2">Mark In Progress</button>
-                        </form>
-                        <form method="post" action="{{ url_for('main.update_subtask_status', subtask_id=subtask.id) }}" class="d-inline">
-                          <input type="hidden" name="status" value="completed">
-                          <button type="submit" class="btn btn-sm btn-success ms-1">Mark Completed</button>
-                        </form>
-                      {% endif %}
-                    </div>
-                  </li>
-                {% endfor %}
-              </ul>
+                  <ul class="list-group mb-3">
+                    {% for entry in milestone.subtasks %}
+                      {% set subtask = entry.subtask %}
+                      {% set status = entry.status %}
+                      {% set ready = entry.student_marked_ready %}
+                      <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                          <div>
+                            <strong>{{ subtask.name }}</strong><br>
+                            <small class="text-muted">{{ subtask.description or "" }}</small>
+                          </div>
+                          <div>
+                            {% if status == 'completed' %}
+                              <span class="badge bg-primary" data-bs-toggle="tooltip" title="Reviewed and confirmed complete.">
+                                <i class="bi bi-check-circle-fill me-1"></i> Completed
+                              </span>
+                            {% else %}
+                              <!-- Mark In Progress -->
+                              <form method="POST" action="{{ url_for('main.update_subtask_status', subtask_id=subtask.id) }}" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" name="status" value="in_progress"
+                                        class="btn btn-sm {% if status == 'in_progress' %}btn-warning{% else %}btn-outline-primary{% endif %}"
+                                        data-bs-toggle="tooltip" title="Mark as In Progress">
+                                  <i class="bi bi-hourglass-split me-1"></i> In Progress
+                                </button>
+                              </form>
+
+                              <!-- Notify Supervisor -->
+                              <form method="POST" action="{{ url_for('main.update_subtask_status', subtask_id=subtask.id) }}" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" name="status" value="ready"
+                                        class="btn btn-sm {% if ready %}btn-success{% else %}btn-outline-success{% endif %} ms-1"
+                                        data-bs-toggle="tooltip" title="Notify supervisor this subtask is ready">
+                                  <i class="bi bi-send-check-fill me-1"></i> Notify
+                                </button>
+                              </form>
+                            {% endif %}
+                          </div>
+                        </div>
+
+                        <!-- Subtask Comment Thread Placeholder -->
+                        <div class="mt-2 ps-3">
+                          <form method="POST" action="{{ url_for('main.post_subtask_comment', subtask_id=subtask.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="input-group input-group-sm">
+                              <input type="text" name="comment" class="form-control" placeholder="Add comment...">
+                              <button type="submit" class="btn btn-outline-secondary">💬</button>
+                            </div>
+                          </form>
+                          <!-- Optional: loop through previous comments -->
+                          {% for comment in entry.comments %}
+                            <div class="text-muted small mt-1 ms-2">• {{ comment.content }} <em>({{ comment.timestamp.strftime('%d %b %Y') }})</em></div>
+                          {% endfor %}
+                        </div>
+                      </li>
+                    {% endfor %}
+                  </ul>
+              </div>
 
               <!-- File Upload (if enabled) -->
-              <form action="{{ url_for('main.upload_submission', milestone_id=milestone.id) }}" method="post" enctype="multipart/form-data">
+              <form action="{{ url_for('main.student_upload_submission', milestone_id=milestone.id) }}" method="post" enctype="multipart/form-data">
                 <div class="mb-2">
                   <label class="form-label">Submit work (PDF/DOC):</label>
                   <input type="file" name="submission_file" accept=".pdf,.doc,.docx" class="form-control" required>
@@ -92,4 +134,10 @@
     </div>
   </div>
 </div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+<script>
+  const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+  tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+</script>
+
 {% endblock %}

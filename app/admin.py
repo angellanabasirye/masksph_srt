@@ -8,9 +8,7 @@ from app.extensions import db
 import csv
 import io
 
-# Renamed to match what __init__.py expects
 admin_bp = Blueprint('admin', __name__, template_folder='templates')
-
 
 @admin_bp.route('/manage-users', methods=['GET'])
 @login_required

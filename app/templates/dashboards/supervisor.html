@@ -40,6 +40,15 @@
         </div>
       </div>
     </div>
+
+    <a href="{{ url_for('main.supervisor_feedback_panel') }}" class="btn btn-outline-dark position-relative mb-3">
+      💬 Feedback
+      {% if unread_count > 0 %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+          {{ unread_count }}
+        </span>
+      {% endif %}
+    </a>
   </div>
 
   <!-- Assigned Students Section -->

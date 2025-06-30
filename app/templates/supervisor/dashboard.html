@@ -9,6 +9,36 @@
     <span class="text-muted">Role: Supervisor</span>
   </div>
 
+{% if ready_students %}
+  <div class="alert alert-info d-flex justify-content-between align-items-center">
+    <div>
+      🔔 <strong>{{ ready_subtask_count }}</strong> ready task{{ ready_subtask_count != 1 and 's' or '' }} across 
+      <strong>{{ ready_students|length }}</strong> student{{ ready_students|length != 1 and 's' or '' }}
+    </div>
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+        View Ready Tasks
+      </button>
+      <ul class="dropdown-menu">
+        {% for s in ready_students %}
+          <li>
+            <a class="dropdown-item" href="{{ url_for('main.supervisor_student_progress', student_id=s.id) }}">
+              {{ s.name }} ({{ s.ready_count }})
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+{% else %}
+  <div class="alert alert-secondary">No students have tasks ready for review.</div>
+{% endif %}
+
+<div class="form-check form-switch mb-3">
+  <input class="form-check-input" type="checkbox" id="filterToggle" onchange="filterReadyOnly()">
+  <label class="form-check-label" for="filterToggle">Show students with ready tasks only</label>
+</div>
+
   <!-- Action Cards -->
   <div class="row mb-4 g-3">
     <div class="col-md-4">
@@ -36,11 +66,19 @@
         <div class="card-body">
           <h6 class="card-title">💬 Feedback & Comments</h6>
           <p class="card-text small">Provide timely guidance and comments on student submissions.</p>
-          <a href="{{ url_for('main.supervisor_students') }}" class="btn btn-warning btn-sm">View Feedback Panel</a>
+          <a href="{{ url_for('main.supervisor_feedback_panel') }}" class="btn btn-warning btn-sm">View Feedback Panel</a>
         </div>
       </div>
     </div>
-  </div>
+
+    <a href="{{ url_for('main.supervisor_feedback_panel') }}" class="btn btn-outline-dark position-relative mb-3">
+      💬 Feedback
+      {% if unread_count > 0 %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+          {{ unread_count }}
+        </span>
+      {% endif %}
+    </a>
 
   <!-- Assigned Students Section -->
   <div class="card shadow-sm border-0 mb-5">
@@ -102,20 +140,22 @@
                   <th>Student</th>
                   <th>Topic</th>
                   <th>Completion %</th>
-                  <th>✅</th>
-                  <th>🟡</th>
-                  <th>⏳</th>
+                  <th>✅ Completed</th>
+                  <th>🟡 In progress </th>
+                  <th>⏳ Not started</th>
+                  <th>🔵 Ready</th>
                 </tr>
               </thead>
               <tbody class="small">
                 {% for row in progress_data %}
-                <tr>
+                <tr class="student-row" data-ready="{{ row.ready }}">
                   <td>{{ row.name }}</td>
                   <td>{{ row.topic }}</td>
                   <td>{{ row.percent }}%</td>
                   <td>{{ row.completed }}</td>
                   <td>{{ row.in_progress }}</td>
                   <td>{{ row.not_started }}</td>
+                  <td>{{ row.ready }}</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -190,4 +230,21 @@
     }
   });
 </script>
+
+<script>
+function filterReadyOnly() {
+  const showOnlyReady = document.getElementById('filterToggle').checked;
+  const rows = document.querySelectorAll('.student-row');
+
+  rows.forEach(row => {
+    const readyCount = parseInt(row.dataset.ready || "0");
+    if (showOnlyReady) {
+      row.style.display = readyCount > 0 ? 'table-row' : 'none';
+    } else {
+      row.style.display = 'table-row';
+    }
+  });
+}
+</script>
+
 {% endblock %}

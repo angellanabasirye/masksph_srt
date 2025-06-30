@@ -30,6 +30,12 @@
       <h5 class="text-white">Supervisor</h5>
       <a href="{{ url_for('main.supervisor_dashboard') }}">Dashboard</a>
       <a href="{{ url_for('main.supervisor_students') }}">My Students</a>
+      <a href="{% if first_ready_student_id %}{{ url_for('main.supervisor_student_progress', student_id=first_ready_student_id) }}{% else %}#{% endif %}">
+        Ready Tasks
+        <span class="badge bg-{{ 'danger' if ready_subtask_count else 'secondary' }} ms-2">
+          {{ ready_subtask_count or 0 }}
+        </span>
+      </a>
       <a href="{{ url_for('main.logout') }}">Logout</a>
     </div>
 
@@ -39,5 +45,8 @@
       {% endblock %}
     </div>
   </div>
+<!-- Bootstrap JS Bundle (includes Popper) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 </body>
 </html>
