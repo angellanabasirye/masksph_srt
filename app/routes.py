@@ -310,9 +310,6 @@ def students():
     if selected_year:
         query = query.filter_by(year_of_intake=selected_year)
 
-    # 🔴 Remove this line
-    # query = query.filter(Student.student_milestones.any())
-
     programs = db.session.query(Student.program).filter(Student.program.isnot(None)).distinct().all()
     supervisors = Faculty.query.filter(Faculty.roles.any(name='Supervisor')).all()
     years = db.session.query(Student.year_of_intake).filter(Student.year_of_intake.isnot(None)).distinct().order_by(Student.year_of_intake).all()
